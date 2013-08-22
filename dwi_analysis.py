@@ -90,21 +90,31 @@ if __name__ == "__main__":
         check_file(bvecsFN)
     else:
         #== DICOM files without accompanying bvals and bvecs files ==#
-        out = extract_dwi_from_dicom(rawFN, dicomDir)
+        if args.step == "convert":
+            out = extract_dwi_from_dicom(rawFN, dicomDir)
 
-        assert(len(out["dwi4d"]) == len(out["bvals"]))
-        assert(len(out["dwi4d"]) == len(out["bvecs"]))
+            assert(len(out["dwi4d"]) == len(out["bvals"]))
+            assert(len(out["dwi4d"]) == len(out["bvecs"]))
 
-        if len(out["dwi4d"]) == 0:
-            raise Exception, "Cannot find any DWI series in input DICOM directory: %s" % rawFN
-        elif len(out["dwi4d"]) > 1:
-            print("WARNING: more than one diffusion series found in DICOM directory: %s. Using the last one.")
+            if len(out["dwi4d"]) == 0:
+                raise Exception, "Cannot find any DWI series in input DICOM directory: %s" % rawFN
+            elif len(out["dwi4d"]) > 1:
+                print("WARNING: more than one diffusion series found in DICOM directory: %s. Using the last one.")
+                
+            rawFormat = "NGZ"
+            rawFN = out["dwi4d"][-1]
+            bvalsFN = out["bvals"][-1]
+            bvecsFN = out["bvecs"][-1]
+        else:
+            rawFormat = "NGZ"
+            rawFN = glob.glob(os.path.join(dicomDir, "*.nii.gz"))[0]
+            bvalsFN = glob.glob(os.path.join(dicomDir, "*.bval*"))[0]
+            bvecsFN = glob.glob(os.path.join(dicomDir, "*.bvec*"))[0]
 
-        rawFormat = "NGZ"
-        rawFN = out["dwi4d"][-1]
-        bvalsFN = out["bvals"][-1]
-        bvecsFN = out["bvecs"][-1]
-    
+        check_file(rawFN)
+        check_file(bvalsFN)
+        check_file(bvecsFN)
+
     #==== Main branches ====#
     if args.step == "convert":
         #=== Run DWIConvert ===#
