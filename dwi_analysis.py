@@ -7,11 +7,15 @@ import argparse
 from scai_utils import *
 
 from dwi_project_info import projInfo
-from dwi_analysis_settings import DWI_ANALYSIS_DIR
+from dwi_analysis_settings import DWI_ANALYSIS_DIR, \
+    BASE_TRACULA_CFG, FS_SUBJECTS_DIR, \
+    FIX_BVECS_SCRIPT, \
+    TRACULA_DOEDDY, TRACULA_DOROTVECS, TRACULA_THR_BET
 
 from scan_for_dwi import extract_dwi_from_dicom
 
-ALL_STEPS = {"convert", "dtiprep"}
+ALL_STEPS = {"convert", "dtiprep", "postqc", \
+             "tracula_prep", "tracula_bedp"}
 
 if __name__ == "__main__":
     stepsHelp = ""
@@ -22,6 +26,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="DWI workflow")
     ap.add_argument("projName", help="Project name (e.g., CAT, SEQPDS, STUT)")
     ap.add_argument("subjID", help="Subject ID")
+    ap.add_argument("--fsSubjID", dest="fsSubjID", default="", \
+                    required=False, \
+                    help="FreeSurfer subject ID (required by the tracula_prep step)")
     ap.add_argument("step", help="Steps: {%s}" % stepsHelp)
 
     if len(sys.argv) == 1:
@@ -73,6 +80,10 @@ if __name__ == "__main__":
     qcXML = os.path.join(dtiprepDir, "raw_dwi_XMLQCResult.xml")
     qcReport = os.path.join(dtiprepDir, "raw_dwi_QCReport.txt")
 
+    qcedNGZ = os.path.join(dtiprepDir, "dwi_qced.nii.gz")
+    qcedBVals = os.path.join(dtiprepDir, "dwi_qced.bvals")
+    qcedBVecs = os.path.join(dtiprepDir, "dwi_qced.bvecs")
+
     #== Locate the bvals and bvecs files ==#
     if len(projInfo["bvalsPath"][pidx]) > 0:
         bvalsFN = \
@@ -119,9 +130,10 @@ if __name__ == "__main__":
     if args.step == "convert":
         #=== Run DWIConvert ===#
         #== Check the path to DWIConvert ==#
-        (so, se) = cmd_stdout("which DWIConvert")
-        if len(se) > 0 or len(so) == 0:
-            raise Exception, "Cannot find the path to executable: DWIConvert"
+        check_bin_path("DWIConvert")
+        #(so, se) = cmd_stdout("which DWIConvert")
+        #if len(se) > 0 or len(so) == 0:
+        #    raise Exception, "Cannot find the path to executable: DWIConvert"
 
         if rawFormat == "DICOM":
             #== Copy the dicoms ==#    
@@ -173,6 +185,115 @@ if __name__ == "__main__":
         check_file(qcedNrrd)
         check_file(qcXML)
         check_file(qcReport)
+
+    elif args.step == "postqc":
+        #=== Convert the qc'ed nrrd to nifti ===#
+        check_bin_path("DWIConvert")
+
+        qcedBVecs_unc = os.path.join(dtiprepDir, "dwi_qced.bvecs.uncorrected")
+
+        check_file(qcedNrrd)
+        cvtCmd = "DWIConvert --inputVolume %s " % qcedNrrd + \
+                 "--conversionMode NrrdToFSL " + \
+                 "--outputBValues %s " % qcedBVals + \
+                 "--outputBVectors %s " % qcedBVecs_unc + \
+                 "--outputVolume %s " % qcedNGZ
+
+        saydo(cvtCmd)
+        check_file(qcedNGZ)
+        check_file(qcedBVals)
+        check_file(qcedBVecs_unc)
+
+        #=== Correct the b-vectors for FSL and FreeSurfer ===#
+        #from dtiprep_utils import correctbvec4fsl
+        #correctbvec4fsl(qcedNGZ, qcedBVecs_unc, qcedBVecs)
+        #check_file(qcedBVecs)
+    
+        check_file(FIX_BVECS_SCRIPT)
+        fixBVecsCmd = "%s %s %s %s" % \
+                      (FIX_BVECS_SCRIPT, qcedNGZ, \
+                       qcedBVecs_unc, qcedBVecs)
+        check_file(qcedBVecs)
+
+    elif args.step == "tracula_prep":
+        #=== Tracula: step prep ===#
+        import numpy as np
+        from tracula_utils import modify_tracula_cfg_file
+
+        #=== Check the version of FreeSurfer ===#
+        fsHome = os.getenv("FREESURFER_HOME")
+        (so, se) = cmd_stdout("cat %s" \
+                              % os.path.join(fsHome, "build-stamp.txt"))
+        assert(len(se) == 0)
+        assert(len(so) > 0)
+        vItem = so.replace("\n", "").split("-v")[-1]
+
+        assert(vItem.count(".") == 2)
+        vItem = float("%s.%s" % (vItem.split(".")[0], vItem.split(".")[1]))
+
+        if vItem < 5.1:
+            raise Exception, "It appears that a FreeSurfer version older than 5.1 is being used. To switch version, do . fss ver (e.g., . fss 5.3.0)"
+        
+        check_bin_path("trac-all")
+
+        #=== Check input FreeSurfer subject ID ===#
+        if len(args.fsSubjID) == 0:
+            raise Exception, \
+                "Input argument --fsSubjID must be set for step %s" % args.step
+
+        check_file(qcedNGZ)
+        check_file(qcedBVals)
+        check_file(qcedBVecs)
+
+        check_file(BASE_TRACULA_CFG)
+
+        #=== Check SUBJECTS_DIR ===#
+        fsSubjectsDir = os.getenv("SUBJECTS_DIR")
+        check_dir(fsSubjectsDir)
+
+        fsSDir = os.path.join(fsSubjectsDir, args.fsSubjID)
+        check_dir(fsSDir)
+
+        #=== Determine nb0 ===#
+        bv = np.genfromtxt(qcedBVals)
+        nb0 = len(np.nonzero(bv == 0.0))
+
+        traculaCfgFN = os.path.join(sDir, "tracula.cfg")
+
+        modify_tracula_cfg_file(fsHome, fsSubjectsDir, \
+                                BASE_TRACULA_CFG, DWI_ANALYSIS_DIR, \
+                                args.fsSubjID, \
+                                dtiprepDir, os.path.split(qcedNGZ)[-1], \
+                                qcedBVals, qcedBVecs, nb0, \
+                                TRACULA_DOEDDY, TRACULA_DOROTVECS, \
+                                TRACULA_THR_BET, traculaCfgFN)
+        check_file(traculaCfgFN)
+        print("INFO: TRACULA config file for subject %s written to: %s" % \
+              (sID, traculaCfgFN))
+
+        #=== Execute tracula ===#
+        tracall_cmd = "trac-all -c %s -prep" % traculaCfgFN
+
+        saydo(tracall_cmd)
+
+        traculaDir = os.path.join(DWI_ANALYSIS_DIR, args.fsSubjID)
+        tracula_dlabelDir = os.path.join(traculaDir, "dlabel")
+        tracula_dmriDir = os.path.join(traculaDir, "dmri")
+        tracula_scriptsDir = os.path.join(traculaDir, "scripts")
+        
+        check_dir(traculaDir)
+        check_dir(tracula_dlabelDir)
+        check_dir(tracula_dmriDir)
+        check_dir(tracula_scriptsDir)
+
+        #=== Move the tracula files back to the dwi directory, if necessary ===#
+        if sID != args.fsSubjID:
+            saydo("mv %s %s/" % (tracula_dlabelDir, sDir))
+            saydo("mv %s %s/" % (tracula_dmriDir, sDir))
+            saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
+            saydo("rmdir %s" % traculaDir)
+                
+    
 
     else:
         raise Exception, "Unrecognized step: %s" % args.step
