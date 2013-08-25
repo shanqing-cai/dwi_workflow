@@ -2,7 +2,8 @@
 # rawFormat: supported: 
 #    DICOM
 #       DICOM file with or without accompanying bvals & bvecs files
-#       If the bvals & bvecs files are unavailable, leave bvalsPath and bvecsPath empty
+#       If the bvals & bvecs files are unavailable, leave bvalsPath and bvecsPath empty.
+#       The program will extract the bvals and bvecs.
 #
 #    ngz
 #       .nii.gz files with accompanying bvals and bvecs files
@@ -12,7 +13,8 @@
 projInfo = {"name": ["CAT", \
                      "STUT", \
                      "innerspeech", \
-                     "SEQPDS"],
+                     "SEQPDS", \
+                     "RHY"],
             "subjIDs": [["12", "13", "14", "15", "20", "21", "22", "24", \
                          "28", "29", "38", "45", "46", "47", "52", "56", \
                          "58"], \
@@ -25,13 +27,16 @@ projInfo = {"name": ["CAT", \
                          "S31", "S32", "S33", "S34", "S35", \
                          "S36", "S37", "S38", "S39"], \
                         ["S10", "S11", "S12", "S13", \
-                         "S15", "S16", "S18", "S19", "S20", "S21", "S24"]],
+                         "S15", "S16", "S18", "S19", "S20", "S21", "S24"], \
+                        ["ANS_M01"]],
             "rawFormat": ["DICOM", \
                           "ngz", \
+                          "DICOM", \
                           "DICOM"],
             "rawPath": ["/speechlab/5/carrie/cat/dti/{subjID}", \
                         "/speechlab/5/scai/BACKUP/DATA/{subjID}/diffusion/*.nii.gz", \
-                        "/speechlab/3/overduin/data/2???????/{subjID}/mri"], \
+                        "/speechlab/3/overduin/data/2???????/{subjID}/mri", \
+                        ""], \
             "bvalsPath": ["/speechlab/5/carrie/cat/dti/{subjID}/bvals", \
                           "/speechlab/5/scai/BACKUP/DATA/{subjID}/diffusion/*.bvals", \
                           ""], \

@@ -4,18 +4,24 @@ import os
 import sys
 import glob
 import argparse
+import tempfile
+
 from scai_utils import *
+from mri_utils import *
 
 from dwi_project_info import projInfo
 from dwi_analysis_settings import DWI_ANALYSIS_DIR, \
     BASE_TRACULA_CFG, FS_SUBJECTS_DIR, \
     FIX_BVECS_SCRIPT, \
-    TRACULA_DOEDDY, TRACULA_DOROTVECS, TRACULA_THR_BET
+    TRACULA_DOEDDY, TRACULA_DOROTVECS, TRACULA_THR_BET, \
+    INIT_FLIRT_MATS
 
 from scan_for_dwi import extract_dwi_from_dicom
 
 ALL_STEPS = {"convert", "dtiprep", "postqc", \
-             "tracula_prep", "tracula_bedp"}
+             "tracula_prep", "tracula_bedp", \
+             "fix_coreg", \
+             "inspect_tensor", "inspect_coreg"}
 
 if __name__ == "__main__":
     stepsHelp = ""
@@ -28,7 +34,7 @@ if __name__ == "__main__":
     ap.add_argument("subjID", help="Subject ID")
     ap.add_argument("--fsSubjID", dest="fsSubjID", default="", \
                     required=False, \
-                    help="FreeSurfer subject ID (required by the tracula_prep step)")
+                    help="FreeSurfer subject ID (required by the steps: tracula_prep and inspect_coreg)")
     ap.add_argument("step", help="Steps: {%s}" % stepsHelp)
 
     if len(sys.argv) == 1:
@@ -83,6 +89,16 @@ if __name__ == "__main__":
     qcedNGZ = os.path.join(dtiprepDir, "dwi_qced.nii.gz")
     qcedBVals = os.path.join(dtiprepDir, "dwi_qced.bvals")
     qcedBVecs = os.path.join(dtiprepDir, "dwi_qced.bvecs")
+
+    dmriDir = os.path.join(sDir, "dmri")
+    faFN = os.path.join(dmriDir, "dtifit_FA.nii.gz")
+    v1FN = os.path.join(dmriDir, "dtifit_V1.nii.gz")
+    lowbBrainFN = os.path.join(dmriDir, "lowb_brain.nii.gz")
+    brainAnatOrigFN = os.path.join(dmriDir, "brain_anat_orig.nii.gz")
+
+    xfmsDir = os.path.join(dmriDir, "xfms")
+    diff2anatorig_mat = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
+    
 
     #== Locate the bvals and bvecs files ==#
     if len(projInfo["bvalsPath"][pidx]) > 0:
@@ -205,15 +221,16 @@ if __name__ == "__main__":
         check_file(qcedBVecs_unc)
 
         #=== Correct the b-vectors for FSL and FreeSurfer ===#
-        #from dtiprep_utils import correctbvec4fsl
-        #correctbvec4fsl(qcedNGZ, qcedBVecs_unc, qcedBVecs)
-        #check_file(qcedBVecs)
-    
-        check_file(FIX_BVECS_SCRIPT)
-        fixBVecsCmd = "%s %s %s %s" % \
-                      (FIX_BVECS_SCRIPT, qcedNGZ, \
-                       qcedBVecs_unc, qcedBVecs)
+        from dtiprep_utils import correctbvec4fsl
+        correctbvec4fsl(qcedNGZ, qcedBVecs_unc, qcedBVecs)
         check_file(qcedBVecs)
+    
+        #check_file(FIX_BVECS_SCRIPT)
+        #fixBVecsCmd = "%s %s %s %s" % \
+        #              (FIX_BVECS_SCRIPT, qcedNGZ, \
+        #               qcedBVecs_unc, qcedBVecs)
+        #saydo(fixBVecsCmd)
+        #check_file(qcedBVecs)
 
     elif args.step == "tracula_prep":
         #=== Tracula: step prep ===#
@@ -292,8 +309,102 @@ if __name__ == "__main__":
             saydo("mv %s %s/" % (tracula_dmriDir, sDir))
             saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
             saydo("rmdir %s" % traculaDir)
-                
-    
+    elif args.step == "inspect_tensor":
+        check_dir(dmriDir)
+        check_file(faFN)
+        check_file(v1FN)
+
+        #=== Check fslview ===#
+        check_bin_path("fslview")
+        
+        viewCmd = "fslview %s %s" % (faFN, v1FN)
+        saydo(viewCmd)
+
+    elif args.step == "inspect_coreg":
+        check_dir(xfmsDir)
+
+        #=== tkregister2 path check ===#
+        check_bin_path("tkregister2")
+
+        #=== Check input FreeSurfer subject ID ===#
+        if len(args.fsSubjID) == 0:
+            raise Exception, \
+                "Input argument --fsSubjID must be set for step %s" % args.step
+        
+        #=== Check the diffusion to anatomical coregistration ==#
+        check_file(lowbBrainFN)
+
+        #=== Locate the FreeSurfer T1 file ===#
+        fsT1FN = os.path.join(FS_SUBJECTS_DIR, args.fsSubjID, "mri", "T1.mgz")
+        check_file(fsT1FN)
+
+        fsT1NGZ = os.path.join(FS_SUBJECTS_DIR, args.fsSubjID, \
+                               "mri", "T1.nii.gz")
+        cvtCmd = "mri_convert %s %s" % (fsT1FN, fsT1NGZ)
+        saydo(cvtCmd)
+        check_file(fsT1NGZ)
+
+        d2ao = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
+        faAnatOrig = os.path.join(dmriDir, "dtifit_FA_anatorig.nii.gz")
+        flirt_apply_xfm(faFN, fsT1NGZ, d2ao, faAnatOrig)
+        check_file(faAnatOrig)
+
+        tmpIdentity = tempfile.mktemp() + ".dat"
+        tkrCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
+                 % (fsT1NGZ, faAnatOrig, tmpIdentity) + \
+                 "--s %s --surfs " % (args.fsSubjID)
+        saydo(tkrCmd)
+        saydo("rm -f %s" % tmpIdentity)
+    elif args.step == "fix_coreg":
+        #=== Files and directories check ===#
+        check_dir(xfmsDir)
+        check_file(diff2anatorig_mat)
+
+        check_file(lowbBrainFN)
+        check_file(brainAnatOrigFN)
+
+        assert(len(INIT_FLIRT_MATS) > 0)
+        initMat = INIT_FLIRT_MATS[0]
+        check_file(initMat)
+
+        #=== Programs: path checks ===#
+        check_bin_path("tkregister2")
+        check_bin_path("flirt")
+
+        #=== flirt for initialization ===#
+        flirtInitOut = os.path.join(dmriDir, "lowb_brain_flirt2anatorig.nii.gz")
+        flirtInitMat = os.path.join(xfmsDir, "flirt_diff2anatorig.mat")
+        flirtCmd = "flirt -in %s -ref %s -out %s -omat %s -init %s" \
+                   % (lowbBrainFN, brainAnatOrigFN, flirtInitOut, \
+                      flirtInitMat, initMat)
+
+        saydo(flirtCmd)
+        check_file(flirtInitOut)
+        check_file(flirtInitMat)
+
+        #=== Use tkregister2 to convert the init mat to dat ===#
+        flirtInitDat = os.path.join(xfmsDir, "flirt_diff2anatorig.dat")
+        cvtCmd = "tkregister2 --mov %s --fsl %s --reg %s --s %s --noedit" \
+            % (lowbBrainFN, flirtInitMat, flirtInitDat, args.fsSubjID)
+        saydo(cvtCmd)
+        check_file(flirtInitDat)
+
+        #=== Backup the old xfm ===#
+        diff2anatorig_mat_backup = os.path.join(xfmsDir, \
+                                                "diff2anatorig.bbr.mat.old")
+        saydo("mv %s %s" % (diff2anatorig_mat, diff2anatorig_mat_backup))
+        check_file(diff2anatorig_mat_backup)
+
+        #=== Run bbregiter2 ===#
+        diff2anatorig_dat = os.path.join(xfmsDir, "diff2anatorig.bbr.dat")
+        bbrCmd = "bbregister --s %s --init-reg %s --dti --mov %s " \
+                 % (args.fsSubjID, flirtInitDat, lowbBrainFN) + \
+                 "--reg %s --fslmat %s " \
+                 % (diff2anatorig_dat, diff2anatorig_mat)
+
+        saydo(bbrCmd)
+        check_file(diff2anatorig_dat)
+        check_file(diff2anatorig_mat)
 
     else:
         raise Exception, "Unrecognized step: %s" % args.step
