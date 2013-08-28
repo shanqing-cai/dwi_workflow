@@ -3,6 +3,7 @@
 import os
 import sys
 import glob
+
 import argparse
 import tempfile
 
@@ -32,9 +33,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="DWI workflow")
     ap.add_argument("projName", help="Project name (e.g., CAT, SEQPDS, STUT)")
     ap.add_argument("subjID", help="Subject ID")
-    ap.add_argument("--fsSubjID", dest="fsSubjID", default="", \
-                    required=False, \
-                    help="FreeSurfer subject ID (required by the steps: tracula_prep and inspect_coreg)")
+    #ap.add_argument("--fsSubjID", dest="fsSubjID", default="", \
+    #                required=False, \
+    #                help="FreeSurfer subject ID (required by the steps: tracula_prep and inspect_coreg)")
     ap.add_argument("step", help="Steps: {%s}" % stepsHelp)
 
     if len(sys.argv) == 1:
@@ -99,6 +100,9 @@ if __name__ == "__main__":
     xfmsDir = os.path.join(dmriDir, "xfms")
     diff2anatorig_mat = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
     
+    #== Determine the FreeSurfer subject ID ==#
+    assert(len(projInfo["subjIDs"][pidx]) == len(projInfo["fsSubjIDs"][pidx]))
+    fsSubjID = projInfo["fsSubjIDs"][pidx][sidx]
 
     #== Locate the bvals and bvecs files ==#
     if len(projInfo["bvalsPath"][pidx]) > 0:
@@ -142,14 +146,20 @@ if __name__ == "__main__":
         check_file(bvalsFN)
         check_file(bvecsFN)
 
+
+    #=== Determine the rotMat (for postqc) ===#
+    assert(len(projInfo["subjIDs"][pidx]) == len(projInfo["rotMat"][pidx]))
+    rotMat = projInfo["rotMat"][pidx][sidx]
+
+
     #==== Main branches ====#
     if args.step == "convert":
         #=== Run DWIConvert ===#
         #== Check the path to DWIConvert ==#
         check_bin_path("DWIConvert")
-        #(so, se) = cmd_stdout("which DWIConvert")
-        #if len(se) > 0 or len(so) == 0:
-        #    raise Exception, "Cannot find the path to executable: DWIConvert"
+        
+        from dtiprep_utils import format_bvals_bvecs
+        format_bvals_bvecs(bvalsFN, bvecsFN)
 
         if rawFormat == "DICOM":
             #== Copy the dicoms ==#    
@@ -183,6 +193,8 @@ if __name__ == "__main__":
         check_file(outputNrrd)
 
         print("outputNrrd = %s" % outputNrrd)
+
+        # 
             
     elif args.step == "dtiprep":
         #=== Run dtiprep ===#
@@ -222,9 +234,9 @@ if __name__ == "__main__":
 
         #=== Correct the b-vectors for FSL and FreeSurfer ===#
         from dtiprep_utils import correctbvec4fsl
-        correctbvec4fsl(qcedNGZ, qcedBVecs_unc, qcedBVecs)
+        correctbvec4fsl(qcedNGZ, qcedBVecs_unc, qcedBVecs, rotMat)
         check_file(qcedBVecs)
-    
+        
         #check_file(FIX_BVECS_SCRIPT)
         #fixBVecsCmd = "%s %s %s %s" % \
         #              (FIX_BVECS_SCRIPT, qcedNGZ, \
@@ -254,7 +266,7 @@ if __name__ == "__main__":
         check_bin_path("trac-all")
 
         #=== Check input FreeSurfer subject ID ===#
-        if len(args.fsSubjID) == 0:
+        if len(fsSubjID) == 0:
             raise Exception, \
                 "Input argument --fsSubjID must be set for step %s" % args.step
 
@@ -268,7 +280,7 @@ if __name__ == "__main__":
         fsSubjectsDir = os.getenv("SUBJECTS_DIR")
         check_dir(fsSubjectsDir)
 
-        fsSDir = os.path.join(fsSubjectsDir, args.fsSubjID)
+        fsSDir = os.path.join(fsSubjectsDir, fsSubjID)
         check_dir(fsSDir)
 
         #=== Determine nb0 ===#
@@ -279,7 +291,7 @@ if __name__ == "__main__":
 
         modify_tracula_cfg_file(fsHome, fsSubjectsDir, \
                                 BASE_TRACULA_CFG, DWI_ANALYSIS_DIR, \
-                                args.fsSubjID, \
+                                fsSubjID, \
                                 dtiprepDir, os.path.split(qcedNGZ)[-1], \
                                 qcedBVals, qcedBVecs, nb0, \
                                 TRACULA_DOEDDY, TRACULA_DOROTVECS, \
@@ -293,7 +305,7 @@ if __name__ == "__main__":
 
         saydo(tracall_cmd)
 
-        traculaDir = os.path.join(DWI_ANALYSIS_DIR, args.fsSubjID)
+        traculaDir = os.path.join(DWI_ANALYSIS_DIR, fsSubjID)
         tracula_dlabelDir = os.path.join(traculaDir, "dlabel")
         tracula_dmriDir = os.path.join(traculaDir, "dmri")
         tracula_scriptsDir = os.path.join(traculaDir, "scripts")
@@ -304,7 +316,7 @@ if __name__ == "__main__":
         check_dir(tracula_scriptsDir)
 
         #=== Move the tracula files back to the dwi directory, if necessary ===#
-        if sID != args.fsSubjID:
+        if sID != fsSubjID:
             saydo("mv %s %s/" % (tracula_dlabelDir, sDir))
             saydo("mv %s %s/" % (tracula_dmriDir, sDir))
             saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
@@ -327,7 +339,7 @@ if __name__ == "__main__":
         check_bin_path("tkregister2")
 
         #=== Check input FreeSurfer subject ID ===#
-        if len(args.fsSubjID) == 0:
+        if len(fsSubjID) == 0:
             raise Exception, \
                 "Input argument --fsSubjID must be set for step %s" % args.step
         
@@ -335,10 +347,10 @@ if __name__ == "__main__":
         check_file(lowbBrainFN)
 
         #=== Locate the FreeSurfer T1 file ===#
-        fsT1FN = os.path.join(FS_SUBJECTS_DIR, args.fsSubjID, "mri", "T1.mgz")
+        fsT1FN = os.path.join(FS_SUBJECTS_DIR, fsSubjID, "mri", "T1.mgz")
         check_file(fsT1FN)
 
-        fsT1NGZ = os.path.join(FS_SUBJECTS_DIR, args.fsSubjID, \
+        fsT1NGZ = os.path.join(FS_SUBJECTS_DIR, fsSubjID, \
                                "mri", "T1.nii.gz")
         cvtCmd = "mri_convert %s %s" % (fsT1FN, fsT1NGZ)
         saydo(cvtCmd)
@@ -352,7 +364,7 @@ if __name__ == "__main__":
         tmpIdentity = tempfile.mktemp() + ".dat"
         tkrCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
                  % (fsT1NGZ, faAnatOrig, tmpIdentity) + \
-                 "--s %s --surfs " % (args.fsSubjID)
+                 "--s %s --surfs " % (fsSubjID)
         saydo(tkrCmd)
         saydo("rm -f %s" % tmpIdentity)
     elif args.step == "fix_coreg":
@@ -385,7 +397,7 @@ if __name__ == "__main__":
         #=== Use tkregister2 to convert the init mat to dat ===#
         flirtInitDat = os.path.join(xfmsDir, "flirt_diff2anatorig.dat")
         cvtCmd = "tkregister2 --mov %s --fsl %s --reg %s --s %s --noedit" \
-            % (lowbBrainFN, flirtInitMat, flirtInitDat, args.fsSubjID)
+            % (lowbBrainFN, flirtInitMat, flirtInitDat, fsSubjID)
         saydo(cvtCmd)
         check_file(flirtInitDat)
 
@@ -398,7 +410,7 @@ if __name__ == "__main__":
         #=== Run bbregiter2 ===#
         diff2anatorig_dat = os.path.join(xfmsDir, "diff2anatorig.bbr.dat")
         bbrCmd = "bbregister --s %s --init-reg %s --dti --mov %s " \
-                 % (args.fsSubjID, flirtInitDat, lowbBrainFN) + \
+                 % (fsSubjID, flirtInitDat, lowbBrainFN) + \
                  "--reg %s --fslmat %s " \
                  % (diff2anatorig_dat, diff2anatorig_mat)
 
