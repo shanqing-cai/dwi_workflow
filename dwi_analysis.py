@@ -113,6 +113,7 @@ if __name__ == "__main__":
     tracula_scriptsDir = os.path.join(traculaDir, "scripts")
 
     tracula_bedpDir = os.path.join(traculaDir, "dmri.bedpostX")
+    bedpDir = os.path.join(sDir, "dmri.bedpostX")
 
     #== Locate the bvals and bvecs files ==#
     if len(projInfo["bvalsPath"][pidx]) > 0:
@@ -362,6 +363,13 @@ if __name__ == "__main__":
             saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
             saydo("mv %s %s/" % (tracula_bedpDir, sDir))
             saydo("rmdir %s" % traculaDir)
+
+        check_dir(bedpDir)
+        from tracula_utils import check_bedp_complete
+        if check_bedp_complete(bedpDir):
+            print("bedpostx completed successfully")
+        else:
+            raise Exception, "It appears that bedpostx failed."
 
     elif args.step == "inspect_tensor":
         check_dir(dmriDir)
