@@ -1,0 +1,59 @@
+#!/bin/bash
+# FSS - freesurfer switcher
+# lets you switch which version of freesurfer you are running
+# without all that gnarly trouble of typing 
+
+function usage {
+   echo "USAGE: $0 version-number"
+}
+
+
+if [ ! "${1}" ]; then
+   usage
+else
+   FSVERSION="${1}"
+   unset FREESURFER_HOME
+   unset FSFAST_HOME
+#   unset SUBJECTS_DIR
+   unset FUNCTIONALS_DIR
+   unset MINC_BIN_DIR
+   unset MINC_LIB_DIR
+   unset MNI_DIR
+   unset MNI_DATAPATH
+   unset MNI_PERL5LIB
+   unset PERL5LIB
+   unset GSL_DIR
+   unset VXL_DIR
+   unset QTDIR
+   unset FS_TCL_LIB_DIR
+   unset TCLLIBPATH
+   unset TCL_LIBRARY
+   unset TK_LIBRARY
+   unset TIX_LIBRARY
+   unset BLT_LIBRARY
+   unset MISC_LIB
+   #unset FSL_DIR
+   #unset FSLDIR
+   #unset LD_LIBRARY_PATH
+   #unset DYLD_LIBRARY_PATH
+   unset FREEDIFFUSION_HOME
+   #export FSLDIR=/usr/share/fsl/4.1
+   #echo "Setting FSLDIR to ${FSLDIR}"
+   if [ "${FSVERSION}" = "5.0.0" ]
+   then
+       export FREESURFER_HOME=/speechlab/software/freesurfer64
+   elif [ "${FSVERSION}" = "5.1.0" ]
+   then
+       export FREESURFER_HOME=/speechlab/software/freesurfer64_v5.1
+   elif [ "${FSVERSION}" = "5.3.0" ]
+   then
+       export FREESURFER_HOME=/speechlab/software/freesurfer64_v5.3
+   else
+       echo "ERROR: Unsupported version: ${FSVERSION}"
+       exit
+   fi
+
+   source $FREESURFER_HOME/SetUpFreeSurfer.sh
+   echo "You are now set up to use Freesurfer ${FSVERSION}."   
+
+fi
