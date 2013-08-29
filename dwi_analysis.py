@@ -99,10 +99,20 @@ if __name__ == "__main__":
 
     xfmsDir = os.path.join(dmriDir, "xfms")
     diff2anatorig_mat = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
-    
+
+    traculaCfgFN = os.path.join(sDir, "tracula.cfg")
+
+
     #== Determine the FreeSurfer subject ID ==#
     assert(len(projInfo["subjIDs"][pidx]) == len(projInfo["fsSubjIDs"][pidx]))
     fsSubjID = projInfo["fsSubjIDs"][pidx][sidx]
+
+    traculaDir = os.path.join(DWI_ANALYSIS_DIR, fsSubjID)
+    tracula_dlabelDir = os.path.join(traculaDir, "dlabel")
+    tracula_dmriDir = os.path.join(traculaDir, "dmri")
+    tracula_scriptsDir = os.path.join(traculaDir, "scripts")
+
+    tracula_bedpDir = os.path.join(traculaDir, "dmri.bedpostX")
 
     #== Locate the bvals and bvecs files ==#
     if len(projInfo["bvalsPath"][pidx]) > 0:
@@ -287,8 +297,6 @@ if __name__ == "__main__":
         bv = np.genfromtxt(qcedBVals)
         nb0 = len(np.nonzero(bv == 0.0))
 
-        traculaCfgFN = os.path.join(sDir, "tracula.cfg")
-
         modify_tracula_cfg_file(fsHome, fsSubjectsDir, \
                                 BASE_TRACULA_CFG, DWI_ANALYSIS_DIR, \
                                 fsSubjID, \
@@ -304,11 +312,6 @@ if __name__ == "__main__":
         tracall_cmd = "trac-all -c %s -prep" % traculaCfgFN
 
         saydo(tracall_cmd)
-
-        traculaDir = os.path.join(DWI_ANALYSIS_DIR, fsSubjID)
-        tracula_dlabelDir = os.path.join(traculaDir, "dlabel")
-        tracula_dmriDir = os.path.join(traculaDir, "dmri")
-        tracula_scriptsDir = os.path.join(traculaDir, "scripts")
         
         check_dir(traculaDir)
         check_dir(tracula_dlabelDir)
@@ -321,6 +324,45 @@ if __name__ == "__main__":
             saydo("mv %s %s/" % (tracula_dmriDir, sDir))
             saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
             saydo("rmdir %s" % traculaDir)
+    elif args.step == "tracula_bedp":
+        check_bin_path("trac-all")
+        
+        #== Check some prerequisite files ==#
+        check_file(traculaCfgFN)
+        check_file(lowbBrainFN)
+        check_file(diff2anatorig_mat)
+
+        s_dlabelDir = os.path.join(sDir, "dlabel")
+        s_dmriDir = os.path.join(sDir, "dmri")
+        s_scriptsDir = os.path.join(sDir, "scripts")
+
+        check_dir(s_dlabelDir)
+        check_dir(s_dmriDir)
+        check_dir(s_scriptsDir)
+
+        #== Copy files into tracula directory if the file subject ID #
+        #   differs between DWI and FreeSurfer ==#
+        if sID != fsSubjID:
+            if os.path.isdir(traculaDir):
+                raise Exception, "Tracula directory %s already exists. Remove it before proceeding" % traculaDir
+            
+            saydo("mkdir %s" % traculaDir)
+            saydo("mv %s %s" % (s_dlabelDir, tracula_dlabelDir))
+            saydo("mv %s %s" % (s_dmriDir, tracula_dmriDir))
+            saydo("mv %s %s" % (s_scriptsDir, tracula_scriptsDir))
+
+        tracall_cmd = "trac-all -c %s -bedp" % traculaCfgFN
+        saydo(tracall_cmd)
+
+        check_dir(tracula_bedpDir)
+
+        if sID != fsSubjID:
+            saydo("mv %s %s/" % (tracula_dlabelDir, sDir))
+            saydo("mv %s %s/" % (tracula_dmriDir, sDir))
+            saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
+            saydo("mv %s %s/" % (tracula_bedpDir, sDir))
+            saydo("rmdir %s" % traculaDir)
+
     elif args.step == "inspect_tensor":
         check_dir(dmriDir)
         check_file(faFN)

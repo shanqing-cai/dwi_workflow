@@ -14,9 +14,9 @@
 #==========================================================#
 # rotMat is the matrix used in the postqc step
 #    It is a 3x3 matrix with 1's or -1's along the diagonal.
-#    In most circumstances, it should be identical across all subjects in a project.
+#    In most circumstances, it should be identical across all subjects in a given project.
 #    At this point it can only be figured out by trial and error.
-#    Shanqing will work on a more satisfactory solution to it later.
+#    Shanqing will work on a more satisfactory solution later.
 #
 #==========================================================#
 
@@ -94,6 +94,6 @@ projInfo = {"name": ["CAT",
                           ""], \
             "rotMat": [[np.array([[1,0,0],[0,-1,0],[0,0,1]])] * 17, 
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 39, 
-                       [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 11, 
+                       [np.array([[1,0,0],[0,-1,0],[0,0,-1]])] * 11, 
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 32, 
-                       [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 1]}
+                       [np.array([[1,0,0],[0,-1,0],[0,0,-1]])] * 1]}
