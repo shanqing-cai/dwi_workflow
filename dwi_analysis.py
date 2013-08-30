@@ -22,7 +22,10 @@ from scan_for_dwi import extract_dwi_from_dicom
 ALL_STEPS = {"convert", "dtiprep", "postqc", \
              "tracula_prep", "tracula_bedp", \
              "fix_coreg", \
-             "inspect_tensor", "inspect_coreg"}
+             "inspect_tensor", "inspect_coreg", \
+             "parcellate"}
+
+HEMIS = ["lh", "rh"]
 
 if __name__ == "__main__":
     stepsHelp = ""
@@ -37,6 +40,10 @@ if __name__ == "__main__":
     #                required=False, \
     #                help="FreeSurfer subject ID (required by the steps: tracula_prep and inspect_coreg)")
     ap.add_argument("step", help="Steps: {%s}" % stepsHelp)
+    ap.add_argument("--parc", dest="parcName", default="", 
+                    help="Cortical parcellation name (required by step parcellate; e.g., aparc12)")
+    ap.add_argument("--redo", dest="bRedo", action="store_true", \
+                    help="Force redoing time-consuming steps (default=False; not fully implemented yet)")
 
     if len(sys.argv) == 1:
         ap.print_help()
@@ -99,8 +106,11 @@ if __name__ == "__main__":
 
     xfmsDir = os.path.join(dmriDir, "xfms")
     diff2anatorig_mat = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
+    anatorig2diff_mat = os.path.join(xfmsDir, "anatorig2diff.bbr.mat")
 
     traculaCfgFN = os.path.join(sDir, "tracula.cfg")
+
+    annotDir = os.path.join(sDir, "annot")
 
 
     #== Determine the FreeSurfer subject ID ==#
@@ -161,6 +171,13 @@ if __name__ == "__main__":
     #=== Determine the rotMat (for postqc) ===#
     assert(len(projInfo["subjIDs"][pidx]) == len(projInfo["rotMat"][pidx]))
     rotMat = projInfo["rotMat"][pidx][sidx]
+
+    #=== Check SUBJECTS_DIR ===#
+    fsSubjectsDir = os.getenv("SUBJECTS_DIR")
+    check_dir(fsSubjectsDir)
+
+    if fsSubjectsDir != FS_SUBJECTS_DIR:
+        raise Exception, "Your environmental SUBJECTS_DIR (%s) does not match the variable FS_SUBJECTS_DIR (%s) in dwi_analysis_settings.py" % (fsSubjectsDir, FS_SUBJECTS_DIR)
 
 
     #==== Main branches ====#
@@ -248,12 +265,6 @@ if __name__ == "__main__":
         correctbvec4fsl(qcedNGZ, qcedBVecs_unc, qcedBVecs, rotMat)
         check_file(qcedBVecs)
         
-        #check_file(FIX_BVECS_SCRIPT)
-        #fixBVecsCmd = "%s %s %s %s" % \
-        #              (FIX_BVECS_SCRIPT, qcedNGZ, \
-        #               qcedBVecs_unc, qcedBVecs)
-        #saydo(fixBVecsCmd)
-        #check_file(qcedBVecs)
 
     elif args.step == "tracula_prep":
         #=== Tracula: step prep ===#
@@ -261,18 +272,8 @@ if __name__ == "__main__":
         from tracula_utils import modify_tracula_cfg_file
 
         #=== Check the version of FreeSurfer ===#
-        fsHome = os.getenv("FREESURFER_HOME")
-        (so, se) = cmd_stdout("cat %s" \
-                              % os.path.join(fsHome, "build-stamp.txt"))
-        assert(len(se) == 0)
-        assert(len(so) > 0)
-        vItem = so.replace("\n", "").split("-v")[-1]
-
-        assert(vItem.count(".") == 2)
-        vItem = float("%s.%s" % (vItem.split(".")[0], vItem.split(".")[1]))
-
-        if vItem < 5.1:
-            raise Exception, "It appears that a FreeSurfer version older than 5.1 is being used. To switch version, do . fss ver (e.g., . fss 5.3.0)"
+        from freesurfer_utils import check_fs_ver
+        check_fs_ver(5.1, mode="eqgt")
         
         check_bin_path("trac-all")
 
@@ -286,13 +287,6 @@ if __name__ == "__main__":
         check_file(qcedBVecs)
 
         check_file(BASE_TRACULA_CFG)
-
-        #=== Check SUBJECTS_DIR ===#
-        fsSubjectsDir = os.getenv("SUBJECTS_DIR")
-        check_dir(fsSubjectsDir)
-
-        if fsSubjectsDir != FS_SUBJECTS_DIR:
-            raise Exception, "Your environmental SUBJECTS_DIR (%s) does not match the variable FS_SUBJECTS_DIR (%s) in dwi_analysis_settings.py" % (fsSubjectsDir, FS_SUBJECTS_DIR)
 
         fsSDir = os.path.join(fsSubjectsDir, fsSubjID)
         check_dir(fsSDir)
@@ -328,6 +322,8 @@ if __name__ == "__main__":
             saydo("mv %s %s/" % (tracula_dmriDir, sDir))
             saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
             saydo("rmdir %s" % traculaDir)
+
+
     elif args.step == "tracula_bedp":
         check_bin_path("trac-all")
         
@@ -420,6 +416,7 @@ if __name__ == "__main__":
                  "--s %s --surfs " % (fsSubjID)
         saydo(tkrCmd)
         saydo("rm -f %s" % tmpIdentity)
+
     elif args.step == "fix_coreg":
         #=== Files and directories check ===#
         check_dir(xfmsDir)
@@ -471,5 +468,73 @@ if __name__ == "__main__":
         check_file(diff2anatorig_dat)
         check_file(diff2anatorig_mat)
 
+    elif args.step == "parcellate":
+        #=== Cortical parcellation using FreeSurfer ===#
+        if len(args.parcName) == 0:
+            raise Exception, "parcellation name (--parc) must be supplied for step %s" % args.step
+
+        from dwi_analysis_settings \
+            import SURF_CLASSIFIERS, PARC_FS_VER
+
+        #== Check FreeSurfer version ==#
+        from freesurfer_utils import check_fs_ver
+        check_fs_ver(PARC_FS_VER, mode="eq")
+
+        check_bin_path("mris_ca_label")
+
+        parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
+        gcsw = SURF_CLASSIFIERS["gcs"][parcIdx]
+        ctab = SURF_CLASSIFIERS["ctab"][parcIdx]
+        check_file(ctab)
+
+        check_dir(annotDir, bCreate=True)
+
+        labelDir = os.path.join(FS_SUBJECTS_DIR, fsSubjID, "label")
+
+        gcss = {}
+        annotFNs = {}
+        #== Step 1: mris_ca_label ==#
+        for hemi in HEMIS:
+            gcss[hemi] = gcsw.replace("{hemi}", hemi)
+            check_file(gcss[hemi])
+
+            annotFNs[hemi] = os.path.join(labelDir, \
+                                          "%s.%s.annot" % (hemi, args.parcName))
+            labelCmd = "mris_ca_label -t %s %s %s " % (ctab, fsSubjID, hemi) + \
+                       "sphere.reg %s %s" % (gcss[hemi], annotFNs[hemi])
+
+            if not os.path.isfile(annotFNs[hemi]) or args.bRedo:
+                saydo(labelCmd)
+
+            check_file(annotFNs[hemi])
+
+        #== Step 2: mri_aparc2aseg ==#
+        check_bin_path("mri_aparc2aseg")
+
+        parcVol = os.path.join(annotDir, "%s.nii.gz" % args.parcName)
+        segCmd = "mri_aparc2aseg --s %s --o %s " % (fsSubjID, parcVol) + \
+                 "--annot %s --labelwm " % (args.parcName) + \
+                 "--annot-table %s " % (ctab)
+        
+        if not os.path.isfile(parcVol) or args.bRedo:
+            saydo(segCmd)
+            
+        check_file(parcVol)
+        
+        #== Step 3: generate the diffusion-space version of the parc volume ==#
+        check_file(diff2anatorig_mat)
+        check_file(lowbBrainFN)
+        
+        from mri_utils import invert_fsl_xfm_mat
+        invert_fsl_xfm_mat(diff2anatorig_mat, anatorig2diff_mat)
+
+        from mri_utils import flirt_apply_xfm
+        parcVolDiff = os.path.join(annotDir, "%s.diff.nii.gz" % args.parcName)
+        if not os.path.isfile(parcVolDiff) or args.bRedo:
+            flirt_apply_xfm(parcVol, lowbBrainFN, \
+                            anatorig2diff_mat, parcVolDiff, \
+                            interpMeth="nearestneighbour")
+        check_file(parcVolDiff)
+        
     else:
         raise Exception, "Unrecognized step: %s" % args.step
