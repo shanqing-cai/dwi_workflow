@@ -73,20 +73,20 @@ projInfo = {"name": ["CAT",
                           ["innerspeech.03", "innerspeech.04", "innerspeech.05", "innerspeech.06",
                            "innerspeech.08", "innerspeech.09", "innerspeech.11", "innerspeech.12",
                            "innerspeech.13", "innerspeech.14", "innerspeech.16"], \
-                          ["1", "2", "3", "4", "5",
-                           "6", "7", "8", "9", "10",
-                           "11", "12", "13", "14", "15",
-                           "16", "17", "18", "19", "20",
-                           "21", "22", "23", "24", "25",
-                           "26", "27", "28", "29", "30",
-                           "31", "32"], \
+                          ["SEQPDS_FS01", "SEQPDS_FS02", "SEQPDS_FS03", "SEQPDS_FS04", "SEQPDS_FS5",
+                           "SEQPDS_FS06", "SEQPDS_FS07", "SEQPDS_FS08", "SEQPDS_FS09", "SEQPDS_FS10",
+                           "SEQPDS_FS11", "SEQPDS_FS12", "SEQPDS_FS13", "SEQPDS_FS14", "SEQPDS_FS15",
+                           "SEQPDS_FS16", "SEQPDS_FS17", "SEQPDS_FS18", "SEQPDS_FS19", "SEQPDS_FS20",
+                           "SEQPDS_FS21", "SEQPDS_FS22", "SEQPDS_FS23", "SEQPDS_FS24", "SEQPDS_FS25",
+                           "SEQPDS_FS26", "SEQPDS_FS27", "SEQPDS_FS28", "SEQPDS_FS29", "SEQPDS_FS30",
+                           "SEQPDS_FS31", "SEQPDS_FS32"], \
                           ["RHY_ANS_M01"], \
-                          ["1", "3", "5", "6", "7",
-                           "8", "11", "16"], \
-                          ["1", "4", "12", "13", "15"], \
-                          ["1", "3", "4", "5",
-                           "6", "7", "8", "9", "10",
-                           "11", "12"]], \
+                          ["FRS_FS01", "FRS_FS03", "FRS_FS05", "FRS_FS06", "FRS_FS07",
+                           "FRS_FS08", "FRS_FS11", "FRS_FS16"], \
+                          ["CCRS_FS01", "CCRS_FS04", "CCRS_FS12", "CCRS_FS13", "CCRS_FS15"], \
+                          ["SEQ_FS01", "SEQ_FS03", "SEQ_FS04", SEQ_FS0"5",
+                           "SEQ_FS06", "SEQ_FS07", "SEQ_FS08", "SEQ_FS09", "SEQ_FS10",
+                           "SEQ_FS11", "SEQ_FS12"]], \
             "rawFormat": ["DICOM",
                           "ngz",
                           "DICOM",
@@ -124,6 +124,6 @@ projInfo = {"name": ["CAT",
                        [np.array([[1,0,0],[0,-1,0],[0,0,-1]])] * 11, 
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 32, 
                        [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 1,
-                       [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 32,
-                       [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 32,
-                       [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 32]}
+                       [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 8,
+                       [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 5,
+                       [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 11]}
