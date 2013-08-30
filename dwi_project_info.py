@@ -84,7 +84,7 @@ projInfo = {"name": ["CAT",
                           ["FRS_FS01", "FRS_FS03", "FRS_FS05", "FRS_FS06", "FRS_FS07",
                            "FRS_FS08", "FRS_FS11", "FRS_FS16"], \
                           ["CCRS_FS01", "CCRS_FS04", "CCRS_FS12", "CCRS_FS13", "CCRS_FS15"], \
-                          ["SEQ_FS01", "SEQ_FS03", "SEQ_FS04", SEQ_FS0"5",
+                          ["SEQ_FS01", "SEQ_FS03", "SEQ_FS04", "SEQ_FS05",
                            "SEQ_FS06", "SEQ_FS07", "SEQ_FS08", "SEQ_FS09", "SEQ_FS10",
                            "SEQ_FS11", "SEQ_FS12"]], \
             "rawFormat": ["DICOM",
