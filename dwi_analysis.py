@@ -12,8 +12,7 @@ from mri_utils import *
 
 from dwi_project_info import projInfo
 from dwi_analysis_settings import DWI_ANALYSIS_DIR, \
-    BASE_TRACULA_CFG, FS_SUBJECTS_DIR, \
-    FIX_BVECS_SCRIPT, \
+    BASE_TRACULA_CFG, FIX_BVECS_SCRIPT, \
     TRACULA_DOEDDY, TRACULA_DOROTVECS, TRACULA_THR_BET, \
     INIT_FLIRT_MATS
 
@@ -57,6 +56,9 @@ if __name__ == "__main__":
 
     rawFormat = projInfo["rawFormat"][pidx].upper()
     rawFN = projInfo["rawPath"][pidx]
+    
+    FS_SUBJECTS_DIR = projInfo["fsSubjectsDir"][pidx]
+    check_dir(FS_SUBJECTS_DIR)
 
     #== Locate the input 4d data ==#
     rawFN = rawFN.replace("{subjID}", "%s")
@@ -535,6 +537,9 @@ if __name__ == "__main__":
                             anatorig2diff_mat, parcVolDiff, \
                             interpMeth="nearestneighbour")
         check_file(parcVolDiff)
+
+        #== Step 4: ==#
+        
         
     else:
         raise Exception, "Unrecognized step: %s" % args.step

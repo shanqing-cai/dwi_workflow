@@ -59,6 +59,14 @@ projInfo = {"name": ["CAT",
                         ["SEQ03001", "SEQ03003", "SEQ03005", "SEQ03006",
                          "SEQ03009", "SEQ03010", "SEQ03011", "SEQ03012", "SEQ03013",
                          "SEQ03015", "SEQ03018"]], \
+            "fsSubjectsDir": ["/speechlab/subjects/pool", 
+                              "/speechlab/subjects/pool", 
+                              "/speechlab/subjects/pool", 
+                              "/speechlab/home/dsbeal/SEQPDS_analysis/fsdata", 
+                              "/speechlab/subjects/pool", 
+                              "", 
+                              "", 
+                              ""], \
             "fsSubjIDs": [["CAT_12", "CAT_13", "CAT_14", "CAT_15", "CAT_20", "CAT_21", "CAT_22", "CAT_24",
                            "CAT_28", "CAT_29", "CAT_38", "CAT_45", "CAT_46", "CAT_47", "CAT_52", "CAT_56",
                            "CAT_58"], \
