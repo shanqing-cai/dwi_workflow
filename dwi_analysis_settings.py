@@ -1,6 +1,6 @@
 DWI_ANALYSIS_DIR = "/speechlab/subjects/pool_dwi/"
 BASE_TRACULA_CFG = "/speechlab/software/pool_dwi/base.cfg"
-FS_SUBJECTS_DIR = "/speechlab/subjects/pool/"
+FS_SUBJECTS_DIR = "/speechlab/home/dsbeal/SEQPDS_analysis/fsdata/"
 
 FIX_BVECS_SCRIPT = "/speechlab/software/pool_dwi/fix_bvecs.py"
 
