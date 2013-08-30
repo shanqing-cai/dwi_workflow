@@ -56,3 +56,31 @@ def modify_tracula_cfg_file(fsHome, subjectsDir, \
     cfg_f = open(outCfgFN, "w")
     cfg_f.write(newcfgt)
     cfg_f.close()
+
+def check_bedp_complete(bedpDir):
+    import os
+
+    expectFiles = ["dyads1_dispersion.nii.gz", "dyads1.nii.gz",
+                   "dyads2_dispersion.nii.gz", "dyads2.nii.gz",
+                   "mean_dsamples.nii.gz", "mean_f1samples.nii.gz",
+                   "mean_f2samples.nii.gz", 
+                   "mean_ph1samples.nii.gz", "mean_ph2samples.nii.gz", 
+                   "mean_th1samples.nii.gz", 
+                   "mean_th2samples.nii.gz", 
+                   "merged_f1samples.nii.gz", "merged_f2samples.nii.gz", 
+                   "merged_ph1samples.nii.gz", "merged_ph2samples.nii.gz", 
+                   "merged_th1samples.nii.gz", "merged_th2samples.nii.gz", 
+                   "nodif_brain_mask.nii.gz"]
+    # Removed: mean_f1samples, mean_S0samples
+    
+    r = True
+    r = r and os.path.isdir(bedpDir)
+
+    for (i0, efn) in enumerate(expectFiles):
+        r = r and os.path.isfile(os.path.join(bedpDir, efn))
+
+        if not r:
+            print("INFO: Cannot find expected file: %s" % efn)
+            return r
+
+    return r
