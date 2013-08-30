@@ -13,7 +13,8 @@ INIT_FLIRT_MATS = ["/speechlab/software/pool_dwi/_defaults/d2a.mat"]
 # ctab: color table name
 SURF_CLASSIFIERS = {"name": ["aparc12"], \
                     "gcs": ["/speechlab/software/pool_dwi/_defaults/{hemi}.slFRSatlas17.gcs"], \
-                    "ctab": ["/speechlab/software/pool_dwi/_defaults/slFRS17.ctab"]}
+                    "ctab": ["/speechlab/software/pool_dwi/_defaults/slFRS17.ctab"], \
+                    "list_py": ["aparc12"]}
 # In order to ensure a homogenous parcellation across all subjects, 
 # the script will stipulate that the specified version of FreeSurfer
 # is used for mris_ca_label
@@ -22,3 +23,6 @@ PARC_FS_VER = "5.0.0"
 TRACULA_DOEDDY = 0
 TRACULA_DOROTVECS = 0
 TRACULA_THR_BET = 0.3
+
+#== Depths at which average WM FA will be extracted ==#
+WM_DEPTHS = [1, 2, 3, 4]

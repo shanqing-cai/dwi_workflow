@@ -487,6 +487,8 @@ if __name__ == "__main__":
         parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
         gcsw = SURF_CLASSIFIERS["gcs"][parcIdx]
         ctab = SURF_CLASSIFIERS["ctab"][parcIdx]
+        list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
+
         check_file(ctab)
 
         check_dir(annotDir, bCreate=True)
@@ -538,8 +540,25 @@ if __name__ == "__main__":
                             interpMeth="nearestneighbour")
         check_file(parcVolDiff)
 
-        #== Step 4: ==#
+        #== Step 4: Generate the individual ROI masks in the diffusion space ==#
+        #==         This includes GM and WM ==#
+        roiList = __import__(list_py)
+        roiList = roiList.aROIs
         
+        from aparc_utils import get_list_roi_nums
+        (rois, roiNums) = get_list_roi_nums(roiList, HEMIS, ctab)
+
+        parcMaskDir = os.path.join(annotDir, args.parcName)
+        check_dir(parcMaskDir, bCreate=True)
+
+        #== Gray matter (GM) ==#
+        gmDir = os.path.join(parcMaskDir, "gm")
+        check_dir(gmDir, bCreate=True)
+
+        from aparc_utils import gen_parc_masks
+        gen_parc_masks(rois, roiNums, parcVolDiff, gmDir, \
+                       doVolStats=True, redo=args.bRedo)
         
+            
     else:
         raise Exception, "Unrecognized step: %s" % args.step
