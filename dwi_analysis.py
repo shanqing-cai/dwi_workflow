@@ -22,7 +22,7 @@ ALL_STEPS = {"convert", "dtiprep", "postqc", \
              "tracula_prep", "tracula_bedp", \
              "fix_coreg", \
              "inspect_tensor", "inspect_coreg", \
-             "parcellate"}
+             "parcellate", "inspect_parc"}
 
 HEMIS = ["lh", "rh"]
 
@@ -600,5 +600,24 @@ if __name__ == "__main__":
             gen_parc_masks(rois, wm_roiNums, parcVolDiff, wmDir, \
                            doVolStats=True, redo=args.bRedo)
             
+    elif args.step == "inspect_parc":
+        if len(args.parcName) == 0:
+            raise Exception, "parcellation name (--parc) must be supplied for step %s" % args.step
+
+        parcVolDiff = os.path.join(annotDir, \
+                                  "%s.diff.nii.gz" \
+                                  % (args.parcName))
+        check_file(parcVolDiff)
+        check_file(faFN)
+
+        tmpReg = tempfile.mktemp() + ".dat"
+
+        tkrCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
+                 % (faFN, parcVolDiff, tmpReg)
+        saydo(tkrCmd)
+
+        saydo("rm -rf %s " % (tmpReg))
+        
+
     else:
         raise Exception, "Unrecognized step: %s" % args.step
