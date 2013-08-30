@@ -291,6 +291,9 @@ if __name__ == "__main__":
         fsSubjectsDir = os.getenv("SUBJECTS_DIR")
         check_dir(fsSubjectsDir)
 
+        if fsSubjectsDir != FS_SUBJECTS_DIR:
+            raise Exception, "Your environmental SUBJECTS_DIR (%s) does not match the variable FS_SUBJECTS_DIR (%s) in dwi_analysis_settings.py" % (fsSubjectsDir, FS_SUBJECTS_DIR)
+
         fsSDir = os.path.join(fsSubjectsDir, fsSubjID)
         check_dir(fsSDir)
 
