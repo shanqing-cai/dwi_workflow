@@ -24,5 +24,7 @@ TRACULA_DOEDDY = 0
 TRACULA_DOROTVECS = 0
 TRACULA_THR_BET = 0.3
 
-#== Depths at which average WM FA will be extracted ==#
-WM_DEPTHS = [1, 2, 3, 4]
+# Depths at which average WM FA will be extracted #
+#     This may also be useful for other analyses in the future. #
+#     Must be positive integers <=5. #
+WM_DEPTHS = [1, 2, 3]

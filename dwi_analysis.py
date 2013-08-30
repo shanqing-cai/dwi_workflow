@@ -513,32 +513,55 @@ if __name__ == "__main__":
             check_file(annotFNs[hemi])
 
         #== Step 2: mri_aparc2aseg ==#
+        from dwi_analysis_settings import WM_DEPTHS
+        wmDepths = WM_DEPTHS
+
         check_bin_path("mri_aparc2aseg")
 
-        parcVol = os.path.join(annotDir, "%s.nii.gz" % args.parcName)
-        segCmd = "mri_aparc2aseg --s %s --o %s " % (fsSubjID, parcVol) + \
-                 "--annot %s --labelwm " % (args.parcName) + \
-                 "--annot-table %s " % (ctab)
-        
-        if not os.path.isfile(parcVol) or args.bRedo:
-            saydo(segCmd)
-            
-        check_file(parcVol)
-        
-        #== Step 3: generate the diffusion-space version of the parc volume ==#
-        check_file(diff2anatorig_mat)
-        check_file(lowbBrainFN)
-        
         from mri_utils import invert_fsl_xfm_mat
-        invert_fsl_xfm_mat(diff2anatorig_mat, anatorig2diff_mat)
-
         from mri_utils import flirt_apply_xfm
-        parcVolDiff = os.path.join(annotDir, "%s.diff.nii.gz" % args.parcName)
-        if not os.path.isfile(parcVolDiff) or args.bRedo:
-            flirt_apply_xfm(parcVol, lowbBrainFN, \
-                            anatorig2diff_mat, parcVolDiff, \
-                            interpMeth="nearestneighbour")
-        check_file(parcVolDiff)
+        invert_fsl_xfm_mat(diff2anatorig_mat, anatorig2diff_mat)
+        
+        for i0 in range(len(wmDepths) + 1):
+            if i0 == len(wmDepths):                
+                parcVol = os.path.join(annotDir, "%s.nii.gz" % args.parcName)
+            else:
+                depth = wmDepths[i0]
+                assert(type(depth) == int)
+                assert(depth > 0)
+                parcVol = os.path.join(annotDir, \
+                                       "%s.%smm.nii.gz" \
+                                       % (args.parcName, depth))
+
+            segCmd = "mri_aparc2aseg --s %s --o %s " % (fsSubjID, parcVol) + \
+                     "--annot %s --labelwm " % (args.parcName) + \
+                     "--annot-table %s " % (ctab)
+            
+            if i0 != len(wmDepths):
+                segCmd += "--wmparc-dmax %d " % depth
+        
+            if not os.path.isfile(parcVol) or args.bRedo:
+                saydo(segCmd)
+            
+            check_file(parcVol)
+        
+            #== Step 3: generate diffusion-space version of the parc volume ==#
+            check_file(diff2anatorig_mat)
+            check_file(lowbBrainFN)
+
+            if i0 == len(wmDepths):
+                parcVolDiff = os.path.join(annotDir, \
+                                           "%s.diff.nii.gz" % args.parcName)
+            else:
+                parcVolDiff = os.path.join(annotDir, \
+                                           "%s.%dmm.diff.nii.gz" \
+                                           % (args.parcName, depth))
+
+            if not os.path.isfile(parcVolDiff) or args.bRedo:
+                flirt_apply_xfm(parcVol, lowbBrainFN, \
+                                anatorig2diff_mat, parcVolDiff, \
+                                interpMeth="nearestneighbour")
+            check_file(parcVolDiff)
 
         #== Step 4: Generate the individual ROI masks in the diffusion space ==#
         #==         This includes GM and WM ==#
@@ -548,17 +571,34 @@ if __name__ == "__main__":
         from aparc_utils import get_list_roi_nums
         (rois, roiNums) = get_list_roi_nums(roiList, HEMIS, ctab)
 
+        import numpy as np
+        roiNums = np.array(roiNums)
+
         parcMaskDir = os.path.join(annotDir, args.parcName)
         check_dir(parcMaskDir, bCreate=True)
 
-        #== Gray matter (GM) ==#
+        #== Step 4.1: Gray matter (GM) ==#
         gmDir = os.path.join(parcMaskDir, "gm")
         check_dir(gmDir, bCreate=True)
 
         from aparc_utils import gen_parc_masks
+        parcVolDiff = os.path.join(annotDir, \
+                                   "%s.diff.nii.gz" % args.parcName)
         gen_parc_masks(rois, roiNums, parcVolDiff, gmDir, \
                        doVolStats=True, redo=args.bRedo)
         
+        #== Step 4.2: White matter (WM) ==#
+        wm_roiNums = roiNums + 2000;
+        for (i0, depth) in enumerate(wmDepths):
+            assert(type(depth) == int)
+            wmDir = os.path.join(parcMaskDir, "wm%dmm" % depth)
+            check_dir(wmDir, bCreate=True)
+            
+            parcVolDiff = os.path.join(annotDir, \
+                                       "%s.%dmm.diff.nii.gz" \
+                                       % (args.parcName, depth))            
+            gen_parc_masks(rois, wm_roiNums, parcVolDiff, wmDir, \
+                           doVolStats=True, redo=args.bRedo)
             
     else:
         raise Exception, "Unrecognized step: %s" % args.step

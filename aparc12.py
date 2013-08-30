@@ -3,7 +3,7 @@
 # 1st column: primary name of ROI
 # 2nd column: cortical zone (lobe)
 # 3rd column: N - non-speech; S - speech
-# 4th column: alternative names (?)
+# 4th column: alternative name(s), if any
 
 aROIs = [   ['FP',     'Prefrontal',   'N', []], \
             ['aMFg',   'Prefrontal',   'N', []], \
