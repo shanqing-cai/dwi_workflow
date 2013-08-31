@@ -297,6 +297,7 @@ if __name__ == "__main__":
         bv = np.genfromtxt(qcedBVals)
         nb0 = len(np.nonzero(bv == 0.0))
 
+        fsHome = os.getenv("FREESURFER_HOME")
         modify_tracula_cfg_file(fsHome, fsSubjectsDir, \
                                 BASE_TRACULA_CFG, DWI_ANALYSIS_DIR, \
                                 fsSubjID, \
@@ -327,6 +328,9 @@ if __name__ == "__main__":
 
 
     elif args.step == "tracula_bedp":
+        from freesurfer_utils import check_fs_ver
+        check_fs_ver(5.1, mode="eqgt")
+
         check_bin_path("trac-all")
         
         #== Check some prerequisite files ==#
@@ -349,9 +353,9 @@ if __name__ == "__main__":
                 raise Exception, "Tracula directory %s already exists. Remove it before proceeding" % traculaDir
             
             saydo("mkdir %s" % traculaDir)
-            saydo("mv %s %s" % (s_dlabelDir, tracula_dlabelDir))
-            saydo("mv %s %s" % (s_dmriDir, tracula_dmriDir))
-            saydo("mv %s %s" % (s_scriptsDir, tracula_scriptsDir))
+            saydo("cp -r %s %s" % (s_dlabelDir, tracula_dlabelDir))
+            saydo("cp -r %s %s" % (s_dmriDir, tracula_dmriDir))
+            saydo("cp -r %s %s" % (s_scriptsDir, tracula_scriptsDir))
 
         tracall_cmd = "trac-all -c %s -bedp" % traculaCfgFN
         saydo(tracall_cmd)
@@ -359,11 +363,11 @@ if __name__ == "__main__":
         check_dir(tracula_bedpDir)
 
         if sID != fsSubjID:
-            saydo("mv %s %s/" % (tracula_dlabelDir, sDir))
-            saydo("mv %s %s/" % (tracula_dmriDir, sDir))
-            saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
-            saydo("mv %s %s/" % (tracula_bedpDir, sDir))
-            saydo("rmdir %s" % traculaDir)
+            saydo("cp -r %s %s/" % (tracula_dlabelDir, sDir))
+            saydo("cp -r %s %s/" % (tracula_dmriDir, sDir))
+            saydo("cp -r %s %s/" % (tracula_scriptsDir, sDir))
+            saydo("cp -r %s %s/" % (tracula_bedpDir, sDir))
+            saydo("rm -rf %s" % traculaDir)
 
         check_dir(bedpDir)
         from tracula_utils import check_bedp_complete
