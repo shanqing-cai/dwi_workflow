@@ -362,6 +362,9 @@ if __name__ == "__main__":
 
         check_dir(tracula_bedpDir)
 
+        from tracula_utils import check_bedp_complete
+        assert(check_bedp_complete(tracula_bedpDir) == True)
+
         if sID != fsSubjID:
             saydo("cp -r %s %s/" % (tracula_dlabelDir, sDir))
             saydo("cp -r %s %s/" % (tracula_dmriDir, sDir))
@@ -370,7 +373,7 @@ if __name__ == "__main__":
             saydo("rm -rf %s" % traculaDir)
 
         check_dir(bedpDir)
-        from tracula_utils import check_bedp_complete
+        
         if check_bedp_complete(bedpDir):
             print("bedpostx completed successfully")
         else:
