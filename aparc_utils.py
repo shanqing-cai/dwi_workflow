@@ -135,7 +135,7 @@ def gen_parc_masks(rois, roiNums, parcVol, outDir, doVolStats=True, redo=False):
         assert(len(so) >= 2)
         
         volStats["nVoxels"].append(int(so[0]))
-        volStats["mm3"].append(float(so[0]))
+        volStats["mm3"].append(float(so[1]))
         volStats["roiName"].append(roi)
             
     if doVolStats:

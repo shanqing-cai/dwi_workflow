@@ -22,7 +22,8 @@ ALL_STEPS = {"convert", "dtiprep", "postqc", \
              "tracula_prep", "tracula_bedp", \
              "fix_coreg", \
              "inspect_tensor", "inspect_coreg", \
-             "parcellate", "inspect_parc"}
+             "parcellate", "inspect_parc", \
+             "probtrackx"}
 
 HEMIS = ["lh", "rh"]
 
@@ -43,6 +44,14 @@ if __name__ == "__main__":
                     help="Cortical parcellation name (required by step parcellate; e.g., aparc12)")
     ap.add_argument("--redo", dest="bRedo", action="store_true", \
                     help="Force redoing time-consuming steps (default=False; not fully implemented yet)")
+    ap.add_argument("--seed", dest="seed", nargs=2, 
+                    help="Seed ROI for probtrackx: seed_roi, seed_type (e.g., lh_vPMC gm)")
+    ap.add_argument("--targ", dest="targ", nargs=2, 
+                    help="Target ROI for probtrackx: seed_roi, seed_type (e.g., lh_vSC gm. Use lh_all or rh_all for all ROIs in one hemisphere of the parcellation paradigm)")
+
+    #                help="Seed ROI for probtrackx")
+    #ap.add_argument("--targ", dest="targ", type=str, \
+    #                help="Target ROI for probtrackx (required by step probtrackx, e.g., lh_vSC")
 
     if len(sys.argv) == 1:
         ap.print_help()
@@ -113,6 +122,8 @@ if __name__ == "__main__":
     traculaCfgFN = os.path.join(sDir, "tracula.cfg")
 
     annotDir = os.path.join(sDir, "annot")
+
+    tracksDir = os.path.join(sDir, "tracks")
 
 
     #== Determine the FreeSurfer subject ID ==#
@@ -625,6 +636,102 @@ if __name__ == "__main__":
 
         saydo("rm -rf %s " % (tmpReg))
         
+    elif args.step == "probtrackx":
+        #=== Probabilistic tractography ===#
+        from dwi_analysis_settings import SURF_CLASSIFIERS
+        parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
+        list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
+        roiList = __import__(list_py)
+        roiList = roiList.aROIs
+        
+        if SURF_CLASSIFIERS["name"].count(args.parcName) == 0:
+            raise Exception, "Parcellation '%s' is not found in dwi_analysis_settings.py"
 
+        if args.parcName == "" or args.parcName == None:
+            raise Exception, "Compulsory --parc option not supplied for step %s" \
+                                 % args.step
+
+        if args.seed == None:
+            raise Exception, "Compulsory --seed option not supplied for step %s" \
+                             % args.step
+        
+        seedList = []
+        if args.seed[0].endswith("_all"):
+            # All ROIs in one hemisphere (of the parcellation paradigm)
+            t_hemi = args.seed[0].replace("_all", "")
+            if HEMIS.count(t_hemi) == 0:
+                raise Exception, "Unrecognized hemisphere name: %s" % t_hemi
+            for (i0, troi) in enumerate(roiList):
+                seedList.append("%s_%s" % (t_hemi, troi[0]))
+        else:
+            # Single seed ROI
+            seedList.append(args.seed[0])
+        seedList.sort()
+        
+        #== Target files ==#
+        if args.targ != None:
+            typeDir = os.path.join(parcDir, args.targ[1])
+            check_dir(typeDir)
+            volStatsFN = os.path.join(typeDir, "vol_stats.mat")
+            check_file(volStatsFN)
+
+            targMask = os.path.join(typeDir, "%s.diff.nii.gz" % args.targ[0])
+            check_file(targMask)
+        else:
+            targMask = None
+        
+        #== Check directories and files ==#
+        check_dir(annotDir)
+        
+        parcDir = os.path.join(annotDir, args.parcName)
+        check_dir(parcDir)
+
+        typeDir = os.path.join(parcDir, args.seed[1])
+        check_dir(typeDir)
+        volStatsFN = os.path.join(typeDir, "vol_stats.mat")
+        check_file(volStatsFN)
+        
+        check_dir(tracksDir, bCreate=True)
+
+        parcTracksDir = os.path.join(tracksDir, args.parcName)
+        check_dir(parcTracksDir, bCreate=True)
+
+        #== bedp merged files and brain mask ==#
+        check_dir(bedpDir)
+
+        from tracula_utils import check_bedp_complete
+        check_bedp_complete(bedpDir)
+
+        bedpBase = os.path.join(bedpDir, "merged")
+
+        brainMask = os.path.join(bedpDir, "nodif_brain_mask.nii.gz")
+        check_file(brainMask)
+
+        #== Iterate through all seed ROIs ==#
+        from tractography import run_probtrackx
+
+        for (i0, seedROI) in enumerate(seedList):
+            #= Seed files =#
+            seedMask = os.path.join(typeDir, "%s.diff.nii.gz" % seedROI)
+            check_file(seedMask)
+            
+            #== Prepare output directory ==#
+            if args.targ != None:
+                outDir = os.path.join(parcTracksDir, 
+                              "%s_%s_to_%s_%s" % (seedROI, args.seed[1], 
+                                                  args.targ[0], args.targ[1]))
+            else:
+                outDir = os.path.join(parcTracksDir, 
+                                      "%s_%s" % (seedROI, args.seed[1]))
+
+            check_dir(outDir, bCreate=True)
+
+            #== Do the work ==#
+        
+            run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir, 
+                           doSeedNorm=True, doSize=True, 
+                           doTargMaskedFDT=True, 
+                           ccStop=False, 
+                           bRedo=args.bRedo)
     else:
         raise Exception, "Unrecognized step: %s" % args.step
