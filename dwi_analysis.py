@@ -18,12 +18,12 @@ from dwi_analysis_settings import DWI_ANALYSIS_DIR, \
 
 from scan_for_dwi import extract_dwi_from_dicom
 
-ALL_STEPS = {"convert", "dtiprep", "postqc", \
+ALL_STEPS = ["convert", "dtiprep", "postqc", \
              "tracula_prep", "tracula_bedp", \
              "fix_coreg", \
              "inspect_tensor", "inspect_coreg", \
              "parcellate", "inspect_parc", \
-             "probtrackx"}
+             "probtrackx", "cort_conn_mat"]
 
 HEMIS = ["lh", "rh"]
 
@@ -48,6 +48,12 @@ if __name__ == "__main__":
                     help="Seed ROI for probtrackx: seed_roi, seed_type (e.g., lh_vPMC gm)")
     ap.add_argument("--targ", dest="targ", nargs=2, 
                     help="Target ROI for probtrackx: seed_roi, seed_type (e.g., lh_vSC gm. Use lh_all or rh_all for all ROIs in one hemisphere of the parcellation paradigm)")
+    ap.add_argument("--hemi", dest="hemi", 
+                    help="Hemisphere (required by the cort_conn_mat step)")
+    ap.add_argument("--maskType", dest="maskType", 
+                    help="Type of mask for tractography (e.g, gm, wm1mm), required by the cort_conn_mat step")
+    ap.add_argument("--speech", dest="bSpeech", action="store_true", 
+                    help="Use speech subnetwork (option for step cort_conn_mat")
 
     #                help="Seed ROI for probtrackx")
     #ap.add_argument("--targ", dest="targ", type=str, \
@@ -125,6 +131,7 @@ if __name__ == "__main__":
 
     tracksDir = os.path.join(sDir, "tracks")
 
+    connDir = os.path.join(sDir, "conn")
 
     #== Determine the FreeSurfer subject ID ==#
     assert(len(projInfo["subjIDs"][pidx]) == len(projInfo["fsSubjIDs"][pidx]))
@@ -643,13 +650,14 @@ if __name__ == "__main__":
         list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
         roiList = __import__(list_py)
         roiList = roiList.aROIs
-        
-        if SURF_CLASSIFIERS["name"].count(args.parcName) == 0:
-            raise Exception, "Parcellation '%s' is not found in dwi_analysis_settings.py"
 
         if args.parcName == "" or args.parcName == None:
             raise Exception, "Compulsory --parc option not supplied for step %s" \
                                  % args.step
+        
+        if SURF_CLASSIFIERS["name"].count(args.parcName) == 0:
+            raise Exception, "Parcellation '%s' is not found in dwi_analysis_settings.py" % args.parcName
+
 
         if args.seed == None:
             raise Exception, "Compulsory --seed option not supplied for step %s" \
@@ -669,6 +677,7 @@ if __name__ == "__main__":
         seedList.sort()
         
         #== Target files ==#
+        parcDir = os.path.join(annotDir, args.parcName)
         if args.targ != None:
             typeDir = os.path.join(parcDir, args.targ[1])
             check_dir(typeDir)
@@ -683,7 +692,6 @@ if __name__ == "__main__":
         #== Check directories and files ==#
         check_dir(annotDir)
         
-        parcDir = os.path.join(annotDir, args.parcName)
         check_dir(parcDir)
 
         typeDir = os.path.join(parcDir, args.seed[1])
@@ -733,5 +741,58 @@ if __name__ == "__main__":
                            doTargMaskedFDT=True, 
                            ccStop=False, 
                            bRedo=args.bRedo)
+    elif args.step == "cort_conn_mat":
+        #=== Calculate the cortical connectivity matrix ===#
+        #===     from the probtrackx results ===#
+        from dwi_analysis_settings import SURF_CLASSIFIERS
+        
+        if args.parcName == "" or args.parcName == None:
+            raise Exception, "Compulsory --parc option not supplied for step %s" \
+                             % args.step
+        
+        if SURF_CLASSIFIERS["name"].count(args.parcName) == 0:
+            raise Exception, "Parcellation '%s' is not found in dwi_analysis_settings.py" % args.parcName
+
+        if args.hemi == None or args.hemi == "":
+            raise Exception, "Required option hemi is not supplied during step %s" % args.step
+        assert(HEMIS.count(args.hemi) == 1)
+
+        if args.maskType == None or args.maskType == "":
+            raise Exception, "Required option maskType is not supplied during step %s" % args.step
+
+        parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
+        list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
+
+        roiList = __import__(list_py)
+        roiList = roiList.aROIs
+
+        #=== Check the existence of all masks (diffusion-space) ===#
+        parcDir = os.path.join(annotDir, args.parcName)
+        typeDir = os.path.join(parcDir, args.maskType)
+
+        check_dir(parcDir)
+        check_dir(typeDir)
+
+        check_dir(tracksDir)
+
+        parcTracksDir = os.path.join(tracksDir, args.parcName)
+        check_dir(parcTracksDir)
+
+        #=== File name of the output ===#
+        check_dir(connDir, bCreate=True)
+
+        connFN = "%s_%s_%s" \
+                 % (args.parcName, args.maskType, args.hemi)
+        if args.bSpeech:
+            connFN += ".speech"
+        connFN += ".mat"
+        connFN = os.path.join(connDir, connFN)
+
+        from tractography import generate_cort_conn_mat
+        generate_cort_conn_mat(roiList, typeDir, parcTracksDir, args.hemi, 
+                               args.bSpeech,  args.maskType, connFN)
+
+        
+
     else:
         raise Exception, "Unrecognized step: %s" % args.step

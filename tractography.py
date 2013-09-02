@@ -123,3 +123,108 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
 
         print("INFO: Saved target-masked normalized FDT value tofile: %s" \
               % targ_masked_norm_fdt_fn)
+
+def check_probtrackx_complete(trackResDir, mode, doSeedNorm=True, doSize=True):
+# Mode: seedOnly or seedTarg
+    import os
+    from scai_utils import check_file
+    
+    ALL_MODES = ["seedOnly", "seedTarg"]
+    assert(ALL_MODES.count(mode) == 1)
+
+    fdt = os.path.join(trackResDir, "fdt_paths.nii.gz")
+    check_file(fdt)
+    
+    if doSeedNorm:
+        fdt_norm = os.path.join(trackResDir, "fdt_paths_norm.nii.gz")
+        check_file(fdt_norm)
+
+    if doSize:
+        seed_size_fn = os.path.join(trackResDir, "seed_size.txt")
+        check_file(seed_size_fn)
+
+        if mode == "seedTarg":
+            targ_size_fn = os.path.join(targResDir, "targ_size.txt")
+            check_file(targ_size_fn)
+
+    
+
+def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi, 
+                           arg_bSpeech, maskType, connFN):
+    import os
+    import numpy as np
+    import nibabel as nb
+    from scai_utils import check_file, check_dir
+    
+
+    mask_shapes = []
+    roiNames = []
+    nzIdx = []
+    bSpeech = []
+    for (i0, troi) in enumerate(roiList):
+        targROI = troi[0]
+        maskFN = os.path.join(parcTypeDir, \
+                              "%s_%s.diff.nii.gz" % (hemi, targROI))
+        check_file(maskFN)
+        
+        t_img = nb.load(maskFN)
+        t_img_dat = t_img.get_data()
+
+        mask_shapes.append(np.shape(t_img_dat))
+            
+        t_img_dat = np.ndarray.flatten(t_img_dat)
+            
+        nzIdx.append(np.nonzero(t_img_dat)[0])
+        roiNames.append(troi[0])
+        if troi[2] == 'N':
+            bSpeech.append(0)
+        else:
+            bSpeech.append(1)
+
+    roiNames = np.array(roiNames)
+    bSpeech = np.array(bSpeech)
+    nzIdx = np.array(nzIdx)
+    if arg_bSpeech:
+        roiNames = roiNames[np.nonzero(bSpeech)[0]]
+        nzIdx = nzIdx[np.nonzero(bSpeech)[0]]
+
+
+    nROIs = len(roiNames)
+    assert(len(nzIdx) == nROIs)
+    if len(np.unique(mask_shapes)) != 1:
+        raise Exception, "Non-unique matrix size among the mask files"
+    imgShape = np.unique(mask_shapes)[0]
+
+    #=== Check the completion of seed-only probtrackx ===#
+    #===     and calculate the conn matrix ===#
+    connMat = np.zeros([nROIs, nROIs])
+
+    for (i0, troi) in enumerate(roiNames):
+        seedROI = troi
+        trackResDir = os.path.join(parcTracksDir, 
+                                   "%s_%s_%s" % \
+                                   (hemi, seedROI, maskType))
+                                   
+        check_probtrackx_complete(trackResDir, "seedOnly", 
+                              doSeedNorm=True, doSize=True)
+        
+        fdt_norm = os.path.join(trackResDir, "fdt_paths_norm.nii.gz")
+        t_img = nb.load(fdt_norm)
+        t_img_dat = t_img.get_data()
+            
+        assert(list(np.shape(t_img_dat)) == list(imgShape))
+        t_img_dat = np.ndarray.flatten(t_img_dat)
+
+        for (i1, troi1) in enumerate(roiNames):
+            connMat[i0, i1] = np.mean(t_img_dat[nzIdx[i1]])
+        
+    #=== Make symmetric ===#
+    connMat = 0.5 * (connMat + connMat.T)
+
+    #=== Write result .mat file ===#
+    from scipy.io import savemat
+    res = {"roiNames": roiNames, "connMat": connMat}
+    savemat(connFN, res)
+    check_file(connFN)
+        
+    print("INFO: Connectivity matrix and associated data were saved at: %s" % (connFN))
