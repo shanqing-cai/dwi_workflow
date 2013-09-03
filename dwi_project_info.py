@@ -64,9 +64,9 @@ projInfo = {"name": ["CAT",
                               "/speechlab/subjects/pool", 
                               "/speechlab/home/dsbeal/SEQPDS_analysis/fsdata", 
                               "/speechlab/subjects/pool", 
-                              "", 
-                              "", 
-                              ""], \
+                              "/speechlab/2/jsegawa/FRS03_fixed1st/subjects", 
+                              "/speechlab/4/disk2/jsegawa/CCRS/subjects", 
+                              "/speechlab/2/jsegawa/SEQ03/nipype_test/subjects_nipype"], \
             "fsSubjIDs": [["CAT_12", "CAT_13", "CAT_14", "CAT_15", "CAT_20", "CAT_21", "CAT_22", "CAT_24",
                            "CAT_28", "CAT_29", "CAT_38", "CAT_45", "CAT_46", "CAT_47", "CAT_52", "CAT_56",
                            "CAT_58"], \
