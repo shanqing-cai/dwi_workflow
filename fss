@@ -47,7 +47,26 @@ else
        export FREESURFER_HOME=/speechlab/software/freesurfer64_v5.1
    elif [ "${FSVERSION}" = "5.3.0" ]
    then
-       export FREESURFER_HOME=/speechlab/software/freesurfer64_v5.3
+	# Note that the directory will depend on the version of Centos (el)
+	
+	if [[ `uname -r` == *.el6 ]]
+	then
+	    echo INFO: Detected Linux el6
+	    echo
+
+	    export FREESURFER_HOME=/speechlab/software/freesurfer64_v5.3
+	elif [[ `uname -r` == *.el5 ]]
+	then
+	    echo INFO: Detected Linux el5
+	    echo
+
+	    export FREESURFER_HOME=/speechlab/software/freesurfer64_v5.3_el4
+	else
+	    echo ERROR: Unrecognized Linux el version
+	    echo
+
+	    exit
+	fi
    else
        echo "ERROR: Unsupported version: ${FSVERSION}"
        exit
