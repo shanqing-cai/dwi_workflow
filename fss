@@ -49,13 +49,14 @@ else
    then
 	# Note that the directory will depend on the version of Centos (el)
 	
-	if [[ `uname -r` == *.el6 ]]
+       echo `uname -r`
+	if [[ `uname -r` == *.el6* ]]
 	then
 	    echo INFO: Detected Linux el6
 	    echo
 
 	    export FREESURFER_HOME=/speechlab/software/freesurfer64_v5.3
-	elif [[ `uname -r` == *.el5 ]]
+	elif [[ `uname -r` == *.el5* ]]
 	then
 	    echo INFO: Detected Linux el5
 	    echo
