@@ -20,9 +20,6 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
                            saydo, cmd_stdout, info_log, error_log
     from mri_utils import nz_voxels
 
-    # DEBUG
-    print("logFN = %s" % logFN)
-    
     #== Get seed and targ nvox ==#
     check_file(seedMask)
 
@@ -157,13 +154,12 @@ def check_probtrackx_complete(trackResDir, mode, doSeedNorm=True, doSize=True):
     
 
 def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi, 
-                           arg_bSpeech, maskType, connFN):
+                           arg_bSpeech, maskType, connFN, logFN=None):
     import os
     import numpy as np
     import nibabel as nb
-    from scai_utils import check_file, check_dir
+    from scai_utils import check_file, check_dir, info_log, error_log
     
-
     mask_shapes = []
     roiNames = []
     nzIdx = []
@@ -213,7 +209,7 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
                                    (hemi, seedROI, maskType))
                                    
         check_probtrackx_complete(trackResDir, "seedOnly", 
-                              doSeedNorm=True, doSize=True)
+                                  doSeedNorm=True, doSize=True)
         
         fdt_norm = os.path.join(trackResDir, "fdt_paths_norm.nii.gz")
         t_img = nb.load(fdt_norm)

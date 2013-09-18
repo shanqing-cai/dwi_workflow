@@ -90,7 +90,8 @@ if __name__ == "__main__":
     elif rawFormat == "NGZ":
         check_file(rawFN)
     else:
-        raise Exception, "Unrecognized raw input format: %s" % rawFormat
+        error_log("Unrecognized raw input format: %s" % rawFormat, \
+                  logFN=logFileName)
 
     #== Create directory ==#
     check_dir(DWI_ANALYSIS_DIR)
@@ -169,7 +170,8 @@ if __name__ == "__main__":
             assert(len(out["dwi4d"]) == len(out["bvecs"]))
 
             if len(out["dwi4d"]) == 0:
-                raise Exception, "Cannot find any DWI series in input DICOM directory: %s" % rawFN
+                error_log("Cannot find any DWI series in input DICOM directory: %s" % rawFN,
+                          logFN=logFileName)
             elif len(out["dwi4d"]) > 1:
                 print("WARNING: more than one diffusion series found in DICOM directory: %s. Using the last one.")
                 
@@ -197,16 +199,18 @@ if __name__ == "__main__":
     check_dir(fsSubjectsDir)
 
     if fsSubjectsDir != FS_SUBJECTS_DIR:
-        raise Exception, "Your environmental SUBJECTS_DIR (%s) does not match the variable FS_SUBJECTS_DIR (%s) in dwi_analysis_settings.py" % (fsSubjectsDir, FS_SUBJECTS_DIR)
+        error_log("Your environmental SUBJECTS_DIR (%s) does not match the variable FS_SUBJECTS_DIR (%s) in dwi_analysis_settings.py" % (fsSubjectsDir, FS_SUBJECTS_DIR),
+                  logFN=logFileName)
 
     #=== Prepare log file name ===#
     if ALL_STEPS.count(args.step) == 0:
-        raise Exception, "Unrecognized step name: %s" % args.step
+        error_log("Unrecognized step name: %s" % args.step, logFN=logFileName)
     
     logDir = os.path.join(sDir, "logs")
     check_dir(logDir, bCreate=True)
     
     logFileName = os.path.join(logDir, args.step + ".log")
+    info_log("logFileName = %s" % logFileName)
 
     #==== Main branches ====#
     if args.step == "convert":
@@ -219,13 +223,14 @@ if __name__ == "__main__":
 
         if rawFormat == "DICOM":
             #== Copy the dicoms ==#    
-            saydo("cp -v %s %s" % (os.path.join(rawFN, "*.dcm"), dicomDir))
+            saydo("cp -v %s %s" % (os.path.join(rawFN, "*.dcm"), dicomDir),
+                  logFN=logFileName)
 
             #== Copy the bvecs and bvals ==#
-            saydo("cp -v %s %s" % (bvalsFN, dicomDir))
+            saydo("cp -v %s %s" % (bvalsFN, dicomDir), logFN=logFileName)
             bvalsFN = os.path.join(dicomDir, os.path.split(bvalsFN)[-1])
 
-            saydo("cp -v %s %s" % (bvecsFN, dicomDir))
+            saydo("cp -v %s %s" % (bvecsFN, dicomDir), logFN=logFileName)
             bvecsFN = os.path.join(dicomDir, os.path.split(bvecsFN)[-1])
 
             dwiCvtCmd = "DWIConvert --inputDicomDirectory %s " % dicomDir + \
@@ -242,13 +247,14 @@ if __name__ == "__main__":
                         "--outputVolume %s " % outputNrrd
             
         else:
-            raise Exception, "Step %s: Unsupported input format %s" % \
-                             (args.step, rawFormat)
+            error_log("Step %s: Unsupported input format %s" % \
+                      (args.step, rawFormat),
+                      logFN=logFileName)
 
-        saydo(dwiCvtCmd)
+        saydo(dwiCvtCmd, logFN=logFileName)
         check_file(outputNrrd)
 
-        print("outputNrrd = %s" % outputNrrd)
+        info_log("outputNrrd = %s" % outputNrrd, logFN=logFileName)
 
         # 
             
@@ -259,13 +265,14 @@ if __name__ == "__main__":
         #== Check the path to DTIPrep ==#
         (so, se) = cmd_stdout("which DTIPrep")
         if len(se) > 0 or len(so) == 0:
-            raise Exception, "Cannot find the path to executable: DTIPrep"
+            error_log("Cannot find the path to executable: DTIPrep",
+                      logFN=logFileName)
 
         logFN = os.path.join(dtiprepDir, "dtiprep_notes.txt")
         dtiprepCmd = "DTIPrep -w %s -p default -d -c -n %s" % \
                      (outputNrrd, logFN)
 
-        saydo(dtiprepCmd)
+        saydo(dtiprepCmd, logFN=logFileName)
         check_file(qcedNrrd)
         check_file(qcXML)
         check_file(qcReport)
@@ -283,7 +290,7 @@ if __name__ == "__main__":
                  "--outputBVectors %s " % qcedBVecs_unc + \
                  "--outputVolume %s " % qcedNGZ
 
-        saydo(cvtCmd)
+        saydo(cvtCmd, logFN=logFileName)
         check_file(qcedNGZ)
         check_file(qcedBVals)
         check_file(qcedBVecs_unc)
@@ -307,8 +314,8 @@ if __name__ == "__main__":
 
         #=== Check input FreeSurfer subject ID ===#
         if len(fsSubjID) == 0:
-            raise Exception, \
-                "Input argument --fsSubjID must be set for step %s" % args.step
+            error_log("Input argument --fsSubjID must be set for step %s" % args.step,
+                      logFN=logFileName)
 
         check_file(qcedNGZ)
         check_file(qcedBVals)
@@ -338,7 +345,7 @@ if __name__ == "__main__":
         #=== Execute tracula ===#
         tracall_cmd = "trac-all -c %s -prep" % traculaCfgFN
 
-        saydo(tracall_cmd)
+        saydo(tracall_cmd, logFN=logFileName)
         
         check_dir(traculaDir)
         check_dir(tracula_dlabelDir)
@@ -347,10 +354,10 @@ if __name__ == "__main__":
 
         #=== Move the tracula files back to the dwi directory, if necessary ===#
         if sID != fsSubjID:
-            saydo("mv %s %s/" % (tracula_dlabelDir, sDir))
-            saydo("mv %s %s/" % (tracula_dmriDir, sDir))
-            saydo("mv %s %s/" % (tracula_scriptsDir, sDir))
-            saydo("rmdir %s" % traculaDir)
+            saydo("mv %s %s/" % (tracula_dlabelDir, sDir), logFN=logFileName)
+            saydo("mv %s %s/" % (tracula_dmriDir, sDir), logFN=logFileName)
+            saydo("mv %s %s/" % (tracula_scriptsDir, sDir), logFN=logFileName)
+            saydo("rmdir %s" % traculaDir, logFN=logFileName)
 
 
     elif args.step == "tracula_bedp":
@@ -376,15 +383,19 @@ if __name__ == "__main__":
         #   differs between DWI and FreeSurfer ==#
         if sID != fsSubjID:
             if os.path.isdir(traculaDir):
-                raise Exception, "Tracula directory %s already exists. Remove it before proceeding" % traculaDir
+                error_log("Tracula directory %s already exists. Remove it before proceeding" % traculaDir,
+                          logFN=logFileName)
             
-            saydo("mkdir %s" % traculaDir)
-            saydo("cp -r %s %s" % (s_dlabelDir, tracula_dlabelDir))
-            saydo("cp -r %s %s" % (s_dmriDir, tracula_dmriDir))
-            saydo("cp -r %s %s" % (s_scriptsDir, tracula_scriptsDir))
+            saydo("mkdir %s" % traculaDir, logFN=logFileName)
+            saydo("cp -r %s %s" % (s_dlabelDir, tracula_dlabelDir),
+                  logFN=logFileName)
+            saydo("cp -r %s %s" % (s_dmriDir, tracula_dmriDir),
+                  logFN=logFileName)
+            saydo("cp -r %s %s" % (s_scriptsDir, tracula_scriptsDir),
+                  logFN=logFileName)
 
         tracall_cmd = "trac-all -c %s -bedp" % traculaCfgFN
-        saydo(tracall_cmd)
+        saydo(tracall_cmd, logFN=logFileName)
 
         check_dir(tracula_bedpDir)
 
@@ -392,18 +403,19 @@ if __name__ == "__main__":
         assert(check_bedp_complete(tracula_bedpDir) == True)
 
         if sID != fsSubjID:
-            saydo("cp -r %s %s/" % (tracula_dlabelDir, sDir))
-            saydo("cp -r %s %s/" % (tracula_dmriDir, sDir))
-            saydo("cp -r %s %s/" % (tracula_scriptsDir, sDir))
-            saydo("cp -r %s %s/" % (tracula_bedpDir, sDir))
-            saydo("rm -rf %s" % traculaDir)
+            saydo("cp -r %s %s/" % (tracula_dlabelDir, sDir), logFN=logFileName)
+            saydo("cp -r %s %s/" % (tracula_dmriDir, sDir), logFN=logFileName)
+            saydo("cp -r %s %s/" % (tracula_scriptsDir, sDir),
+                  logFN=logFileName)
+            saydo("cp -r %s %s/" % (tracula_bedpDir, sDir), logFN=logFileName)
+            saydo("rm -rf %s" % traculaDir, logFN=logFileName)
 
         check_dir(bedpDir)
         
         if check_bedp_complete(bedpDir):
-            print("bedpostx completed successfully")
+            info_log("bedpostx completed successfully", logFN=logFileName)
         else:
-            raise Exception, "It appears that bedpostx failed."
+            error_log("It appears that bedpostx failed.", logFN=logFileName)
 
     elif args.step == "inspect_tensor":
         check_dir(dmriDir)
@@ -414,7 +426,7 @@ if __name__ == "__main__":
         check_bin_path("fslview")
         
         viewCmd = "fslview %s %s" % (faFN, v1FN)
-        saydo(viewCmd)
+        saydo(viewCmd, logFN=logFileName)
 
     elif args.step == "inspect_coreg":
         check_dir(xfmsDir)
@@ -424,8 +436,8 @@ if __name__ == "__main__":
 
         #=== Check input FreeSurfer subject ID ===#
         if len(fsSubjID) == 0:
-            raise Exception, \
-                "Input argument --fsSubjID must be set for step %s" % args.step
+            error_log("Input argument --fsSubjID must be set for step %s" % args.step,
+                      logFN=logFileName)
         
         #=== Check the diffusion to anatomical coregistration ==#
         check_file(lowbBrainFN)
@@ -437,7 +449,7 @@ if __name__ == "__main__":
         fsT1NGZ = os.path.join(FS_SUBJECTS_DIR, fsSubjID, \
                                "mri", "T1.nii.gz")
         cvtCmd = "mri_convert %s %s" % (fsT1FN, fsT1NGZ)
-        saydo(cvtCmd)
+        saydo(cvtCmd, logFN=logFileName)
         check_file(fsT1NGZ)
 
         d2ao = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
@@ -449,8 +461,8 @@ if __name__ == "__main__":
         tkrCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
                  % (fsT1NGZ, faAnatOrig, tmpIdentity) + \
                  "--s %s --surfs " % (fsSubjID)
-        saydo(tkrCmd)
-        saydo("rm -f %s" % tmpIdentity)
+        saydo(tkrCmd, logFN=logFileName)
+        saydo("rm -f %s" % tmpIdentity, logFN=logFileName)
 
     elif args.step == "fix_coreg":
         #=== Files and directories check ===#
@@ -475,7 +487,7 @@ if __name__ == "__main__":
                    % (lowbBrainFN, brainAnatOrigFN, flirtInitOut, \
                       flirtInitMat, initMat)
 
-        saydo(flirtCmd)
+        saydo(flirtCmd, logFN=logFileName)
         check_file(flirtInitOut)
         check_file(flirtInitMat)
 
@@ -483,30 +495,31 @@ if __name__ == "__main__":
         flirtInitDat = os.path.join(xfmsDir, "flirt_diff2anatorig.dat")
         cvtCmd = "tkregister2 --mov %s --fsl %s --reg %s --s %s --noedit" \
             % (lowbBrainFN, flirtInitMat, flirtInitDat, fsSubjID)
-        saydo(cvtCmd)
+        saydo(cvtCmd, logFN=logFileName)
         check_file(flirtInitDat)
 
         #=== Backup the old xfm ===#
         diff2anatorig_mat_backup = os.path.join(xfmsDir, \
                                                 "diff2anatorig.bbr.mat.old")
-        saydo("mv %s %s" % (diff2anatorig_mat, diff2anatorig_mat_backup))
+        saydo("mv %s %s" % (diff2anatorig_mat, diff2anatorig_mat_backup), logFN=logFileName)
         check_file(diff2anatorig_mat_backup)
 
-        #=== Run bbregiter2 ===#
+        #=== Run bbregister2 ===#
         diff2anatorig_dat = os.path.join(xfmsDir, "diff2anatorig.bbr.dat")
         bbrCmd = "bbregister --s %s --init-reg %s --dti --mov %s " \
                  % (fsSubjID, flirtInitDat, lowbBrainFN) + \
                  "--reg %s --fslmat %s " \
                  % (diff2anatorig_dat, diff2anatorig_mat)
 
-        saydo(bbrCmd)
+        saydo(bbrCmd, logFN=logFileName)
         check_file(diff2anatorig_dat)
         check_file(diff2anatorig_mat)
 
     elif args.step == "parcellate":
         #=== Cortical parcellation using FreeSurfer ===#
         if len(args.parcName) == 0:
-            raise Exception, "parcellation name (--parc) must be supplied for step %s" % args.step
+            error_log("parcellation name (--parc) must be supplied for step %s" % args.step,
+                      logFN=logFileName)
 
         from dwi_analysis_settings \
             import SURF_CLASSIFIERS, PARC_FS_VER
@@ -541,7 +554,7 @@ if __name__ == "__main__":
                        "sphere.reg %s %s" % (gcss[hemi], annotFNs[hemi])
 
             if not os.path.isfile(annotFNs[hemi]) or args.bRedo:
-                saydo(labelCmd)
+                saydo(labelCmd, logFN=logFileName)
 
             check_file(annotFNs[hemi])
 
@@ -574,7 +587,7 @@ if __name__ == "__main__":
                 segCmd += "--wmparc-dmax %d " % depth
         
             if not os.path.isfile(parcVol) or args.bRedo:
-                saydo(segCmd)
+                saydo(segCmd, logFN=logFileName)
             
             check_file(parcVol)
         
@@ -635,7 +648,8 @@ if __name__ == "__main__":
             
     elif args.step == "inspect_parc":
         if len(args.parcName) == 0:
-            raise Exception, "parcellation name (--parc) must be supplied for step %s" % args.step
+            error_log("parcellation name (--parc) must be supplied for step %s" % args.step,
+                      logFN=logFileName)
 
         parcVolDiff = os.path.join(annotDir, \
                                   "%s.diff.nii.gz" \
@@ -647,9 +661,9 @@ if __name__ == "__main__":
 
         tkrCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
                  % (faFN, parcVolDiff, tmpReg)
-        saydo(tkrCmd)
+        saydo(tkrCmd, logFN=logFileName)
 
-        saydo("rm -rf %s " % (tmpReg))
+        saydo("rm -rf %s " % (tmpReg), logFN=logFileName)
         
     elif args.step == "probtrackx":
         #=== Probabilistic tractography ===#
@@ -760,18 +774,22 @@ if __name__ == "__main__":
         from dwi_analysis_settings import SURF_CLASSIFIERS
         
         if args.parcName == "" or args.parcName == None:
-            raise Exception, "Compulsory --parc option not supplied for step %s" \
-                             % args.step
+            error_log("Compulsory --parc option not supplied for step %s" \
+                      % args.step,
+                      logFN=logFileName)
         
         if SURF_CLASSIFIERS["name"].count(args.parcName) == 0:
-            raise Exception, "Parcellation '%s' is not found in dwi_analysis_settings.py" % args.parcName
+            error_log("Parcellation '%s' is not found in dwi_analysis_settings.py" % args.parcName,
+                      logFN=logFileName)
 
         if args.hemi == None or args.hemi == "":
-            raise Exception, "Required option hemi is not supplied during step %s" % args.step
+            error_log("Required option hemi is not supplied during step %s" % args.step,
+                      logFN=logFileName)
         assert(HEMIS.count(args.hemi) == 1)
 
         if args.maskType == None or args.maskType == "":
-            raise Exception, "Required option maskType is not supplied during step %s" % args.step
+            error_log("Required option maskType is not supplied during step %s" % args.step,
+                      logFN=logFileName)
 
         parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
         list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
@@ -803,9 +821,10 @@ if __name__ == "__main__":
 
         from tractography import generate_cort_conn_mat
         generate_cort_conn_mat(roiList, typeDir, parcTracksDir, args.hemi, 
-                               args.bSpeech,  args.maskType, connFN)
+                               args.bSpeech,  args.maskType, connFN,
+                               logFN=logFileName)
 
         
 
     else:
-        raise Exception, "Unrecognized step: %s" % args.step
+        error_log("Unrecognized step: %s" % args.step, logFN=logFileName)
