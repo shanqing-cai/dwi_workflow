@@ -106,14 +106,15 @@ def get_list_roi_nums(roiList, HEMIS, ctab):
 
     return (rois, roiNums)
 
-def gen_parc_masks(rois, roiNums, parcVol, outDir, doVolStats=True, redo=False):
+def gen_parc_masks(rois, roiNums, parcVol, outDir,
+                   doVolStats=True, redo=False, logFN=None):
     import os
     import numpy as np
     from scipy.io import savemat as savemat
     from scai_utils import check_bin_path, check_file, \
-                           cmd_stdout, saydo
+                           cmd_stdout, saydo, info_log, error_log
 
-    check_bin_path("fslstats")
+    check_bin_path("fslstats", logFN=logFN)
 
     volStats = {"roiName": [], "nVoxels": [], "mm3": []}
     for (i0, roi) in enumerate(rois):
@@ -124,8 +125,8 @@ def gen_parc_masks(rois, roiNums, parcVol, outDir, doVolStats=True, redo=False):
                  (parcVol, roiNum, maskFN)
             
         if not os.path.isfile(maskFN) or redo:
-            saydo(binCmd)    
-        check_file(maskFN)
+            saydo(binCmd, logFN=logFN)
+        check_file(maskFN, logFN=logFN)
 
         #= Volume stats =#
         (so, se) = cmd_stdout("fslstats %s -V" % maskFN)
@@ -145,7 +146,7 @@ def gen_parc_masks(rois, roiNums, parcVol, outDir, doVolStats=True, redo=False):
     
         volStatsFN = os.path.join(outDir, "vol_stats.mat")
         savemat(volStatsFN, volStats)
-        check_file(volStatsFN)
+        check_file(volStatsFN, logFN=logFN)
 
-        print("INFO: %s: Saved volume stats of the mask files at\n\t%s" \
-              % (gen_parc_masks.__name__, volStatsFN))
+        info_log("INFO: %s: Saved volume stats of the mask files at\n\t%s" \
+                 % (gen_parc_masks.__name__, volStatsFN), logFN=logFN)

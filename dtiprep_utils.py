@@ -1,9 +1,10 @@
-def correctbvec4fsl(dwifile, bvec, bvec1, rotMat):
+def correctbvec4fsl(dwifile, bvec, bvec1, rotMat, logFN=None):
 # Based on the script (by Satrajit Ghosh?): qc2rotatefsl.py
 
     import nibabel as nib
     import numpy as np
     from nipype.utils.filemanip import split_filename
+    from scai_utils import info_log, error_log
  
     aff = nib.load(dwifile).get_affine()[:3, :3]
     for i in range(10):
@@ -24,8 +25,8 @@ def correctbvec4fsl(dwifile, bvec, bvec1, rotMat):
     np.savetxt(outfile, bvecs, '%.17g %.17g %.17g')
     return outfile
 
-def format_bvals_bvecs(bvalsFN, bvecsFN):
-    from scai_utils import cmd_stdout
+def format_bvals_bvecs(bvalsFN, bvecsFN, logFN=None):
+    from scai_utils import cmd_stdout, info_log, error_log
     import numpy as np
 
     #=== Check the format of bvals and bvecs ===#
@@ -34,13 +35,14 @@ def format_bvals_bvecs(bvalsFN, bvecsFN):
 
     (so, se) = cmd_stdout("wc -l %s" % bvecsFN)
     if len(se) > 0 or len(so) == 0:
-        raise Exception, "Cannot perform wc on bvecs file: %s" % bvecsFN
+        error_log("Cannot perform wc on bvecs file: %s" % bvecsFN, logFN=logFN)
     
     ln = int(so.split(" ")[0])
-    print("ln = %d" % ln)
+    info_log("ln = %d" % ln, logFN=logFN)
         
     if ln < 3:
-        raise Exception, "Unrecognized format in bvecs file: %s" % bvecsFN
+        error_log("Unrecognized format in bvecs file: %s" % bvecsFN, \
+                  logFN=logFN)
     elif ln == 3:
         #== Convert bvecs file ==#
         bvecs = np.genfromtxt(bvecsFN)
@@ -54,9 +56,13 @@ def format_bvals_bvecs(bvalsFN, bvecsFN):
         lbv = len(bvecs)
         assert(lbv > 3)
         
-        print("INFO: Swapped rows and columns in bvecs file: %s\n" % bvecsFN)
+        info_log("INFO: Swapped rows and columns in bvecs file: %s\n" \
+                 % bvecsFN,
+                 logFN=logFN)
 
         #== Convert bvals file ==#
         bvals = np.genfromtxt(bvalsFN).T
         np.savetxt(bvalsFN, bvals, fmt="%.15f")
-        print("INFO: Swapped rows and columns in bvecs file: %s\nc" % bvecsFN)
+        info_log("INFO: Swapped rows and columns in bvecs file: %s\nc" \
+                 % bvecsFN,
+                 logFN=logFN)

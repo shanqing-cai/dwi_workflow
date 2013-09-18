@@ -1,7 +1,8 @@
 def modify_tracula_cfg_file(fsHome, subjectsDir, \
                             baseCfgFN, dtRoot, subjID, dcmRoot, dcmFN, \
                             bvalsFN, bvecsFN, nb0, doEddy, doRotVecs, thrBet, \
-                            outCfgFN):    
+                            outCfgFN, logFN=None):
+    from scai_utils import info_log
     import os
 
     #=== Read and modify the base tracula cfg file ===#
@@ -80,7 +81,7 @@ def check_bedp_complete(bedpDir):
         r = r and os.path.isfile(os.path.join(bedpDir, efn))
 
         if not r:
-            print("INFO: Cannot find expected file: %s" % efn)
+            info_log("INFO: Cannot find expected file: %s" % efn, logFN=logFN)
             return r
 
     return r

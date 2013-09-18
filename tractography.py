@@ -21,22 +21,22 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
     from mri_utils import nz_voxels
 
     #== Get seed and targ nvox ==#
-    check_file(seedMask)
+    check_file(seedMask, logFN=logFN)
 
     (seed_nVoxels, seed_mm3) = nz_voxels(seedMask)
     seed_nVoxels = float(seed_nVoxels)
     assert(seed_nVoxels > 0)
     
     if targMask != None:
-        check_file(targMask)
+        check_file(targMask, logFN=logFN)
         
         (targ_nVoxels, targ_mm3) = nz_voxels(targMask)
         targ_nVoxels = float(targ_nVoxels)
         assert(targ_nVoxels > 0)
         
-    check_bin_path("probtrackx")
+    check_bin_path("probtrackx", logFN=logFN)
         
-    check_dir(outDir)
+    check_dir(outDir, logFN=logFN)
 
     if targMask != None:
         #= Prepare waypoint file =#
@@ -46,7 +46,7 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
         wpf = open(wpfn, "w")
         wpf.write(wptext)
         wpf.close()
-        check_file(wpfn)
+        check_file(wpfn, logFN=logFN)
         
     cmd = 'probtrackx --mode=seedmask -x %s ' % seedMask + \
           '-s %s ' % bedpBase + \
@@ -64,25 +64,25 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
         saydo(cmd, logFN=logFN)
 
     #== Check for probtrackx completion ==#
-    check_file(fdt_paths_fn)
+    check_file(fdt_paths_fn, logFN=logFN)
 
     #== Save probtrackx command ==#
     cmd_fn = os.path.join(outDir, "command.txt")
     cmd_f = open(cmd_fn, "wt")
     cmd_f.write("%s\n" % cmd)
     cmd_f.close()
-    check_file(cmd_fn)
+    check_file(cmd_fn, logFN=logFN)
 
     #== Generate seed size-normalized fdt_paths ==#
     fdt_paths_norm_fn = os.path.join(outDir, "fdt_paths_norm.nii.gz")
-    check_bin_path("fslmaths")
+    check_bin_path("fslmaths", logFN=logFN)
 
     norm_cmd = "fslmaths -dt float %s -div %d %s -odt float" % \
                (fdt_paths_fn, seed_nVoxels, fdt_paths_norm_fn)
     if not os.path.isfile(fdt_paths_norm_fn) or bRedo:
         saydo(norm_cmd, logFN=logFN)
         
-    check_file(fdt_paths_norm_fn)
+    check_file(fdt_paths_norm_fn, logFN=logFN)
 
     if doSize:
         #== Write to seed size file ==#
@@ -90,7 +90,7 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
         seed_size_f = open(seed_size_fn, 'w')
         seed_size_f.write("%d %f" % (int(seed_nVoxels), seed_mm3))
         seed_size_f.close()
-        check_file(seed_size_fn)
+        check_file(seed_size_fn, logFN=logFN)
 
         info_log("INFO: Saved seed size data to file: %s" % seed_size_fn, 
                  logFN=logFN)
@@ -101,14 +101,14 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
             targ_size_f = open(targ_size_fn, 'w')
             targ_size_f.write("%d %f" % (int(targ_nVoxels), targ_mm3))
             targ_size_f.close()
-            check_file(targ_size_fn)
+            check_file(targ_size_fn, logFN=logFN)
 
             info_log("INFO: Saved targ size data to file: %s" % targ_size_fn,
                      logFN=logFN)
 
     if (targMask != None) and doTargMaskedFDT:
         #== Get target masked tract density ==#
-        check_bin_path("fslstats")
+        check_bin_path("fslstats", logFN=logFN)
         (so, se) = cmd_stdout("fslstats %s -k %s -m" \
                               % (fdt_paths_norm_fn, targMask))
         assert(len(se) == 0)
@@ -122,13 +122,14 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
         tmnff.write("%f" % targ_masked_norm_fdt)
         tmnff.close()
 
-        check_file(targ_masked_norm_fdt_fn)
+        check_file(targ_masked_norm_fdt_fn, logFN=logFN)
 
         info_log("INFO: Saved target-masked normalized FDT value tofile: %s" \
                  % targ_masked_norm_fdt_fn,
                  logFN=logFN)
 
-def check_probtrackx_complete(trackResDir, mode, doSeedNorm=True, doSize=True):
+def check_probtrackx_complete(trackResDir, mode, doSeedNorm=True, doSize=True,
+                              logFN=None):
 # Mode: seedOnly or seedTarg
     import os
     from scai_utils import check_file
@@ -137,19 +138,19 @@ def check_probtrackx_complete(trackResDir, mode, doSeedNorm=True, doSize=True):
     assert(ALL_MODES.count(mode) == 1)
 
     fdt = os.path.join(trackResDir, "fdt_paths.nii.gz")
-    check_file(fdt)
+    check_file(fdt, logFN=logFN)
     
     if doSeedNorm:
         fdt_norm = os.path.join(trackResDir, "fdt_paths_norm.nii.gz")
-        check_file(fdt_norm)
+        check_file(fdt_norm, logFN=logFN)
 
     if doSize:
         seed_size_fn = os.path.join(trackResDir, "seed_size.txt")
-        check_file(seed_size_fn)
+        check_file(seed_size_fn, logFN=logFN)
 
         if mode == "seedTarg":
             targ_size_fn = os.path.join(targResDir, "targ_size.txt")
-            check_file(targ_size_fn)
+            check_file(targ_size_fn, logFN=logFN)
 
     
 
@@ -168,7 +169,7 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
         targROI = troi[0]
         maskFN = os.path.join(parcTypeDir, \
                               "%s_%s.diff.nii.gz" % (hemi, targROI))
-        check_file(maskFN)
+        check_file(maskFN, logFN=logFN)
         
         t_img = nb.load(maskFN)
         t_img_dat = t_img.get_data()
@@ -209,7 +210,8 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
                                    (hemi, seedROI, maskType))
                                    
         check_probtrackx_complete(trackResDir, "seedOnly", 
-                                  doSeedNorm=True, doSize=True)
+                                  doSeedNorm=True, doSize=True,
+                                  logFN=logFN)
         
         fdt_norm = os.path.join(trackResDir, "fdt_paths_norm.nii.gz")
         t_img = nb.load(fdt_norm)
@@ -228,7 +230,7 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
     from scipy.io import savemat
     res = {"roiNames": roiNames, "connMat": connMat}
     savemat(connFN, res)
-    check_file(connFN)
+    check_file(connFN, logFN=logFN)
         
     info_log("INFO: Connectivity matrix and associated data were saved at: %s" \
              % (connFN),

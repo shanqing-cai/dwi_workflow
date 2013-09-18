@@ -99,12 +99,22 @@ if __name__ == "__main__":
     sDir = os.path.join(DWI_ANALYSIS_DIR, sID)
     check_dir(sDir, bCreate=True)
 
+    #=== Prepare log file name ===#
+    if ALL_STEPS.count(args.step) == 0:
+        error_log("Unrecognized step name: %s" % args.step, logFN=logFileName)
+    
+    logDir = os.path.join(sDir, "logs")
+    check_dir(logDir, bCreate=True)
+    
+    logFileName = os.path.join(logDir, args.step + ".log")
+    info_log("logFileName = %s" % logFileName)
+
     #== Prepare directories and some file names ==#
     dicomDir = os.path.join(sDir, "dicom")
-    check_dir(dicomDir, bCreate=True)    
+    check_dir(dicomDir, bCreate=True, logFN=logFileName)
     
     dtiprepDir = os.path.join(sDir, "dtiprep")
-    check_dir(dtiprepDir, bCreate=True)
+    check_dir(dtiprepDir, bCreate=True, logFN=logFileName)
         
     outputNrrd = os.path.join(dtiprepDir, "raw_dwi.nrrd")
 
@@ -153,14 +163,14 @@ if __name__ == "__main__":
         bvalsFN = glob.glob(bvalsFN)
         assert(len(bvalsFN) == 1)
         bvalsFN = bvalsFN[0]
-        check_file(bvalsFN)
+        check_file(bvalsFN, logFN=logFileName)
 
         bvecsFN = \
             projInfo["bvecsPath"][pidx].replace("{subjID}", "%s") % args.subjID
         bvecsFN = glob.glob(bvecsFN)
         assert(len(bvecsFN) == 1)
         bvecsFN = bvecsFN[0]
-        check_file(bvecsFN)
+        check_file(bvecsFN, logFN=logFileName)
     else:
         #== DICOM files without accompanying bvals and bvecs files ==#
         if args.step == "convert":
@@ -185,9 +195,9 @@ if __name__ == "__main__":
             bvalsFN = glob.glob(os.path.join(dicomDir, "*.bval*"))[0]
             bvecsFN = glob.glob(os.path.join(dicomDir, "*.bvec*"))[0]
 
-        check_file(rawFN)
-        check_file(bvalsFN)
-        check_file(bvecsFN)
+        check_file(rawFN, logFN=logFileName)
+        check_file(bvalsFN, logFN=logFileName)
+        check_file(bvecsFN, logFN=logFileName)
 
 
     #=== Determine the rotMat (for postqc) ===#
@@ -196,23 +206,15 @@ if __name__ == "__main__":
 
     #=== Check SUBJECTS_DIR ===#
     fsSubjectsDir = os.getenv("SUBJECTS_DIR")
-    check_dir(fsSubjectsDir)
+    check_dir(fsSubjectsDir, logFN=logFileName)
 
     if fsSubjectsDir != FS_SUBJECTS_DIR:
         error_log("Your environmental SUBJECTS_DIR (%s) does not match the variable FS_SUBJECTS_DIR (%s) in dwi_analysis_settings.py" % (fsSubjectsDir, FS_SUBJECTS_DIR),
                   logFN=logFileName)
 
-    #=== Prepare log file name ===#
-    if ALL_STEPS.count(args.step) == 0:
-        error_log("Unrecognized step name: %s" % args.step, logFN=logFileName)
-    
-    logDir = os.path.join(sDir, "logs")
-    check_dir(logDir, bCreate=True)
-    
-    logFileName = os.path.join(logDir, args.step + ".log")
-    info_log("logFileName = %s" % logFileName)
-
     #==== Main branches ====#
+    info_log("Step %s started" % args.step, logFN=logFileName)
+    
     if args.step == "convert":
         #=== Run DWIConvert ===#
         #== Check the path to DWIConvert ==#
@@ -252,7 +254,7 @@ if __name__ == "__main__":
                       logFN=logFileName)
 
         saydo(dwiCvtCmd, logFN=logFileName)
-        check_file(outputNrrd)
+        check_file(outputNrrd, logFN=logFileName)
 
         info_log("outputNrrd = %s" % outputNrrd, logFN=logFileName)
 
@@ -260,7 +262,7 @@ if __name__ == "__main__":
             
     elif args.step == "dtiprep":
         #=== Run dtiprep ===#
-        check_file(outputNrrd)
+        check_file(outputNrrd, logFN=logFileName)
 
         #== Check the path to DTIPrep ==#
         (so, se) = cmd_stdout("which DTIPrep")
@@ -273,9 +275,9 @@ if __name__ == "__main__":
                      (outputNrrd, logFN)
 
         saydo(dtiprepCmd, logFN=logFileName)
-        check_file(qcedNrrd)
-        check_file(qcXML)
-        check_file(qcReport)
+        check_file(qcedNrrd, logFN=logFileName)
+        check_file(qcXML, logFN=logFileName)
+        check_file(qcReport, logFN=logFileName)
 
     elif args.step == "postqc":
         #=== Convert the qc'ed nrrd to nifti ===#
@@ -283,7 +285,7 @@ if __name__ == "__main__":
 
         qcedBVecs_unc = os.path.join(dtiprepDir, "dwi_qced.bvecs.uncorrected")
 
-        check_file(qcedNrrd)
+        check_file(qcedNrrd, logFN=logFileName)
         cvtCmd = "DWIConvert --inputVolume %s " % qcedNrrd + \
                  "--conversionMode NrrdToFSL " + \
                  "--outputBValues %s " % qcedBVals + \
@@ -291,14 +293,14 @@ if __name__ == "__main__":
                  "--outputVolume %s " % qcedNGZ
 
         saydo(cvtCmd, logFN=logFileName)
-        check_file(qcedNGZ)
-        check_file(qcedBVals)
-        check_file(qcedBVecs_unc)
+        check_file(qcedNGZ, logFN=logFileName)
+        check_file(qcedBVals, logFN=logFileName)
+        check_file(qcedBVecs_unc, logFN=logFileName)
 
         #=== Correct the b-vectors for FSL and FreeSurfer ===#
         from dtiprep_utils import correctbvec4fsl
         correctbvec4fsl(qcedNGZ, qcedBVecs_unc, qcedBVecs, rotMat)
-        check_file(qcedBVecs)
+        check_file(qcedBVecs, logFN=logFileName)
         
 
     elif args.step == "tracula_prep":
@@ -317,14 +319,14 @@ if __name__ == "__main__":
             error_log("Input argument --fsSubjID must be set for step %s" % args.step,
                       logFN=logFileName)
 
-        check_file(qcedNGZ)
-        check_file(qcedBVals)
-        check_file(qcedBVecs)
+        check_file(qcedNGZ, logFN=logFileName)
+        check_file(qcedBVals, logFN=logFileName)
+        check_file(qcedBVecs, logFN=logFileName)
 
-        check_file(BASE_TRACULA_CFG)
+        check_file(BASE_TRACULA_CFG, logFN=logFileName)
 
         fsSDir = os.path.join(fsSubjectsDir, fsSubjID)
-        check_dir(fsSDir)
+        check_dir(fsSDir, logFN=logFileName)
 
         #=== Determine nb0 ===#
         bv = np.genfromtxt(qcedBVals)
@@ -338,7 +340,7 @@ if __name__ == "__main__":
                                 qcedBVals, qcedBVecs, nb0, \
                                 TRACULA_DOEDDY, TRACULA_DOROTVECS, \
                                 TRACULA_THR_BET, traculaCfgFN)
-        check_file(traculaCfgFN)
+        check_file(traculaCfgFN, logFN=logFileName)
         print("INFO: TRACULA config file for subject %s written to: %s" % \
               (sID, traculaCfgFN))
 
@@ -347,10 +349,10 @@ if __name__ == "__main__":
 
         saydo(tracall_cmd, logFN=logFileName)
         
-        check_dir(traculaDir)
-        check_dir(tracula_dlabelDir)
-        check_dir(tracula_dmriDir)
-        check_dir(tracula_scriptsDir)
+        check_dir(traculaDir, logFN=logFileName)
+        check_dir(tracula_dlabelDir, logFN=logFileName)
+        check_dir(tracula_dmriDir, logFN=logFileName)
+        check_dir(tracula_scriptsDir, logFN=logFileName)
 
         #=== Move the tracula files back to the dwi directory, if necessary ===#
         if sID != fsSubjID:
@@ -367,17 +369,17 @@ if __name__ == "__main__":
         check_bin_path("trac-all")
         
         #== Check some prerequisite files ==#
-        check_file(traculaCfgFN)
-        check_file(lowbBrainFN)
-        check_file(diff2anatorig_mat)
+        check_file(traculaCfgFN, logFN=logFileName)
+        check_file(lowbBrainFN, logFN=logFileName)
+        check_file(diff2anatorig_mat, logFN=logFileName)
 
         s_dlabelDir = os.path.join(sDir, "dlabel")
         s_dmriDir = os.path.join(sDir, "dmri")
         s_scriptsDir = os.path.join(sDir, "scripts")
 
-        check_dir(s_dlabelDir)
-        check_dir(s_dmriDir)
-        check_dir(s_scriptsDir)
+        check_dir(s_dlabelDir, logFN=logFileName)
+        check_dir(s_dmriDir, logFN=logFileName)
+        check_dir(s_scriptsDir, logFN=logFileName)
 
         #== Copy files into tracula directory if the file subject ID #
         #   differs between DWI and FreeSurfer ==#
@@ -397,10 +399,11 @@ if __name__ == "__main__":
         tracall_cmd = "trac-all -c %s -bedp" % traculaCfgFN
         saydo(tracall_cmd, logFN=logFileName)
 
-        check_dir(tracula_bedpDir)
+        check_dir(tracula_bedpDir, logFN=logFileName)
 
         from tracula_utils import check_bedp_complete
-        assert(check_bedp_complete(tracula_bedpDir) == True)
+        if not check_bedp_complete(tracula_bedpDir):
+            error_log("It appears that bedpostx failed.", logFN=logFileName)
 
         if sID != fsSubjID:
             saydo("cp -r %s %s/" % (tracula_dlabelDir, sDir), logFN=logFileName)
@@ -410,7 +413,7 @@ if __name__ == "__main__":
             saydo("cp -r %s %s/" % (tracula_bedpDir, sDir), logFN=logFileName)
             saydo("rm -rf %s" % traculaDir, logFN=logFileName)
 
-        check_dir(bedpDir)
+        check_dir(bedpDir, logFN=logFileName)
         
         if check_bedp_complete(bedpDir):
             info_log("bedpostx completed successfully", logFN=logFileName)
@@ -418,9 +421,9 @@ if __name__ == "__main__":
             error_log("It appears that bedpostx failed.", logFN=logFileName)
 
     elif args.step == "inspect_tensor":
-        check_dir(dmriDir)
-        check_file(faFN)
-        check_file(v1FN)
+        check_dir(dmriDir, logFN=logFileName)
+        check_file(faFN, logFN=logFileName)
+        check_file(v1FN, logFN=logFileName)
 
         #=== Check fslview ===#
         check_bin_path("fslview")
@@ -429,7 +432,7 @@ if __name__ == "__main__":
         saydo(viewCmd, logFN=logFileName)
 
     elif args.step == "inspect_coreg":
-        check_dir(xfmsDir)
+        check_dir(xfmsDir, logFN=logFileName)
 
         #=== tkregister2 path check ===#
         check_bin_path("tkregister2")
@@ -440,22 +443,22 @@ if __name__ == "__main__":
                       logFN=logFileName)
         
         #=== Check the diffusion to anatomical coregistration ==#
-        check_file(lowbBrainFN)
+        check_file(lowbBrainFN, logFN=logFileName)
 
         #=== Locate the FreeSurfer T1 file ===#
         fsT1FN = os.path.join(FS_SUBJECTS_DIR, fsSubjID, "mri", "T1.mgz")
-        check_file(fsT1FN)
+        check_file(fsT1FN, logFN=logFileName)
 
         fsT1NGZ = os.path.join(FS_SUBJECTS_DIR, fsSubjID, \
                                "mri", "T1.nii.gz")
         cvtCmd = "mri_convert %s %s" % (fsT1FN, fsT1NGZ)
         saydo(cvtCmd, logFN=logFileName)
-        check_file(fsT1NGZ)
+        check_file(fsT1NGZ, logFN=logFileName)
 
         d2ao = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
         faAnatOrig = os.path.join(dmriDir, "dtifit_FA_anatorig.nii.gz")
         flirt_apply_xfm(faFN, fsT1NGZ, d2ao, faAnatOrig)
-        check_file(faAnatOrig)
+        check_file(faAnatOrig, logFN=logFileName)
 
         tmpIdentity = tempfile.mktemp() + ".dat"
         tkrCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
@@ -466,15 +469,15 @@ if __name__ == "__main__":
 
     elif args.step == "fix_coreg":
         #=== Files and directories check ===#
-        check_dir(xfmsDir)
-        check_file(diff2anatorig_mat)
+        check_dir(xfmsDir, logFN=logFileName)
+        check_file(diff2anatorig_mat, logFN=logFileName)
 
-        check_file(lowbBrainFN)
-        check_file(brainAnatOrigFN)
+        check_file(lowbBrainFN, logFN=logFileName)
+        check_file(brainAnatOrigFN, logFN=logFileName)
 
         assert(len(INIT_FLIRT_MATS) > 0)
         initMat = INIT_FLIRT_MATS[0]
-        check_file(initMat)
+        check_file(initMat, logFN=logFileName)
 
         #=== Programs: path checks ===#
         check_bin_path("tkregister2")
@@ -488,21 +491,21 @@ if __name__ == "__main__":
                       flirtInitMat, initMat)
 
         saydo(flirtCmd, logFN=logFileName)
-        check_file(flirtInitOut)
-        check_file(flirtInitMat)
+        check_file(flirtInitOut, logFN=logFileName)
+        check_file(flirtInitMat, logFN=logFileName)
 
         #=== Use tkregister2 to convert the init mat to dat ===#
         flirtInitDat = os.path.join(xfmsDir, "flirt_diff2anatorig.dat")
         cvtCmd = "tkregister2 --mov %s --fsl %s --reg %s --s %s --noedit" \
             % (lowbBrainFN, flirtInitMat, flirtInitDat, fsSubjID)
         saydo(cvtCmd, logFN=logFileName)
-        check_file(flirtInitDat)
+        check_file(flirtInitDat, logFN=logFileName)
 
         #=== Backup the old xfm ===#
         diff2anatorig_mat_backup = os.path.join(xfmsDir, \
                                                 "diff2anatorig.bbr.mat.old")
         saydo("mv %s %s" % (diff2anatorig_mat, diff2anatorig_mat_backup), logFN=logFileName)
-        check_file(diff2anatorig_mat_backup)
+        check_file(diff2anatorig_mat_backup, logFN=logFileName)
 
         #=== Run bbregister2 ===#
         diff2anatorig_dat = os.path.join(xfmsDir, "diff2anatorig.bbr.dat")
@@ -512,8 +515,8 @@ if __name__ == "__main__":
                  % (diff2anatorig_dat, diff2anatorig_mat)
 
         saydo(bbrCmd, logFN=logFileName)
-        check_file(diff2anatorig_dat)
-        check_file(diff2anatorig_mat)
+        check_file(diff2anatorig_dat, logFN=logFileName)
+        check_file(diff2anatorig_mat, logFN=logFileName)
 
     elif args.step == "parcellate":
         #=== Cortical parcellation using FreeSurfer ===#
@@ -535,9 +538,9 @@ if __name__ == "__main__":
         ctab = SURF_CLASSIFIERS["ctab"][parcIdx]
         list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
 
-        check_file(ctab)
+        check_file(ctab, logFN=logFileName)
 
-        check_dir(annotDir, bCreate=True)
+        check_dir(annotDir, bCreate=True, logFN=logFileName)
 
         labelDir = os.path.join(FS_SUBJECTS_DIR, fsSubjID, "label")
 
@@ -546,7 +549,7 @@ if __name__ == "__main__":
         #== Step 1: mris_ca_label ==#
         for hemi in HEMIS:
             gcss[hemi] = gcsw.replace("{hemi}", hemi)
-            check_file(gcss[hemi])
+            check_file(gcss[hemi], logFN=logFileName)
 
             annotFNs[hemi] = os.path.join(labelDir, \
                                           "%s.%s.annot" % (hemi, args.parcName))
@@ -556,7 +559,7 @@ if __name__ == "__main__":
             if not os.path.isfile(annotFNs[hemi]) or args.bRedo:
                 saydo(labelCmd, logFN=logFileName)
 
-            check_file(annotFNs[hemi])
+            check_file(annotFNs[hemi], logFN=logFileName)
 
         #== Step 2: mri_aparc2aseg ==#
         from dwi_analysis_settings import WM_DEPTHS
@@ -589,11 +592,11 @@ if __name__ == "__main__":
             if not os.path.isfile(parcVol) or args.bRedo:
                 saydo(segCmd, logFN=logFileName)
             
-            check_file(parcVol)
+            check_file(parcVol, logFN=logFileName)
         
             #== Step 3: generate diffusion-space version of the parc volume ==#
-            check_file(diff2anatorig_mat)
-            check_file(lowbBrainFN)
+            check_file(diff2anatorig_mat, logFN=logFileName)
+            check_file(lowbBrainFN, logFN=logFileName)
 
             if i0 == len(wmDepths):
                 parcVolDiff = os.path.join(annotDir, \
@@ -607,7 +610,7 @@ if __name__ == "__main__":
                 flirt_apply_xfm(parcVol, lowbBrainFN, \
                                 anatorig2diff_mat, parcVolDiff, \
                                 interpMeth="nearestneighbour")
-            check_file(parcVolDiff)
+            check_file(parcVolDiff, logFN=logFileName)
 
         #== Step 4: Generate the individual ROI masks in the diffusion space ==#
         #==         This includes GM and WM ==#
@@ -621,30 +624,30 @@ if __name__ == "__main__":
         roiNums = np.array(roiNums)
 
         parcMaskDir = os.path.join(annotDir, args.parcName)
-        check_dir(parcMaskDir, bCreate=True)
+        check_dir(parcMaskDir, bCreate=True, logFN=logFileName)
 
         #== Step 4.1: Gray matter (GM) ==#
         gmDir = os.path.join(parcMaskDir, "gm")
-        check_dir(gmDir, bCreate=True)
+        check_dir(gmDir, bCreate=True, logFN=logFileName)
 
         from aparc_utils import gen_parc_masks
         parcVolDiff = os.path.join(annotDir, \
                                    "%s.diff.nii.gz" % args.parcName)
         gen_parc_masks(rois, roiNums, parcVolDiff, gmDir, \
-                       doVolStats=True, redo=args.bRedo)
+                       doVolStats=True, redo=args.bRedo, logFN=logFileName)
         
         #== Step 4.2: White matter (WM) ==#
         wm_roiNums = roiNums + 2000;
         for (i0, depth) in enumerate(wmDepths):
             assert(type(depth) == int)
             wmDir = os.path.join(parcMaskDir, "wm%dmm" % depth)
-            check_dir(wmDir, bCreate=True)
+            check_dir(wmDir, bCreate=True, logFN=logFileName)
             
             parcVolDiff = os.path.join(annotDir, \
                                        "%s.%dmm.diff.nii.gz" \
                                        % (args.parcName, depth))            
             gen_parc_masks(rois, wm_roiNums, parcVolDiff, wmDir, \
-                           doVolStats=True, redo=args.bRedo)
+                           doVolStats=True, redo=args.bRedo, logFN=logFileName)
             
     elif args.step == "inspect_parc":
         if len(args.parcName) == 0:
@@ -654,8 +657,8 @@ if __name__ == "__main__":
         parcVolDiff = os.path.join(annotDir, \
                                   "%s.diff.nii.gz" \
                                   % (args.parcName))
-        check_file(parcVolDiff)
-        check_file(faFN)
+        check_file(parcVolDiff, logFN=logFileName)
+        check_file(faFN, logFN=logFileName)
 
         tmpReg = tempfile.mktemp() + ".dat"
 
@@ -706,32 +709,32 @@ if __name__ == "__main__":
         parcDir = os.path.join(annotDir, args.parcName)
         if args.targ != None:
             typeDir = os.path.join(parcDir, args.targ[1])
-            check_dir(typeDir)
+            check_dir(typeDir, logFN=logFileName)
             volStatsFN = os.path.join(typeDir, "vol_stats.mat")
-            check_file(volStatsFN)
+            check_file(volStatsFN, logFN=logFileName)
 
             targMask = os.path.join(typeDir, "%s.diff.nii.gz" % args.targ[0])
-            check_file(targMask)
+            check_file(targMask, logFN=logFileName)
         else:
             targMask = None
         
         #== Check directories and files ==#
-        check_dir(annotDir)
+        check_dir(annotDir, logFN=logFileName)
         
-        check_dir(parcDir)
+        check_dir(parcDir, logFN=logFileName)
 
         typeDir = os.path.join(parcDir, args.seed[1])
-        check_dir(typeDir)
+        check_dir(typeDir, logFN=logFileName)
         volStatsFN = os.path.join(typeDir, "vol_stats.mat")
-        check_file(volStatsFN)
+        check_file(volStatsFN, logFN=logFileName)
         
-        check_dir(tracksDir, bCreate=True)
+        check_dir(tracksDir, bCreate=True, logFN=logFileName)
 
         parcTracksDir = os.path.join(tracksDir, args.parcName)
-        check_dir(parcTracksDir, bCreate=True)
+        check_dir(parcTracksDir, bCreate=True, logFN=logFileName)
 
         #== bedp merged files and brain mask ==#
-        check_dir(bedpDir)
+        check_dir(bedpDir, logFN=logFileName)
 
         from tracula_utils import check_bedp_complete
         check_bedp_complete(bedpDir)
@@ -739,7 +742,7 @@ if __name__ == "__main__":
         bedpBase = os.path.join(bedpDir, "merged")
 
         brainMask = os.path.join(bedpDir, "nodif_brain_mask.nii.gz")
-        check_file(brainMask)
+        check_file(brainMask, logFN=logFileName)
 
         #== Iterate through all seed ROIs ==#
         from tractography import run_probtrackx
@@ -747,7 +750,7 @@ if __name__ == "__main__":
         for (i0, seedROI) in enumerate(seedList):
             #= Seed files =#
             seedMask = os.path.join(typeDir, "%s.diff.nii.gz" % seedROI)
-            check_file(seedMask)
+            check_file(seedMask, logFN=logFileName)
             
             #== Prepare output directory ==#
             if args.targ != None:
@@ -758,7 +761,7 @@ if __name__ == "__main__":
                 outDir = os.path.join(parcTracksDir, 
                                       "%s_%s" % (seedROI, args.seed[1]))
 
-            check_dir(outDir, bCreate=True)
+            check_dir(outDir, bCreate=True, logFN=logFileName)
 
             #== Do the work ==#
         
@@ -801,16 +804,16 @@ if __name__ == "__main__":
         parcDir = os.path.join(annotDir, args.parcName)
         typeDir = os.path.join(parcDir, args.maskType)
 
-        check_dir(parcDir)
-        check_dir(typeDir)
+        check_dir(parcDir, logFN=logFileName)
+        check_dir(typeDir, logFN=logFileName)
 
-        check_dir(tracksDir)
+        check_dir(tracksDir, logFN=logFileName)
 
         parcTracksDir = os.path.join(tracksDir, args.parcName)
-        check_dir(parcTracksDir)
+        check_dir(parcTracksDir, logFN=logFileName)
 
         #=== File name of the output ===#
-        check_dir(connDir, bCreate=True)
+        check_dir(connDir, bCreate=True, logFN=logFileName)
 
         connFN = "%s_%s_%s" \
                  % (args.parcName, args.maskType, args.hemi)
