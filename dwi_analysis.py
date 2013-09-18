@@ -199,6 +199,14 @@ if __name__ == "__main__":
     if fsSubjectsDir != FS_SUBJECTS_DIR:
         raise Exception, "Your environmental SUBJECTS_DIR (%s) does not match the variable FS_SUBJECTS_DIR (%s) in dwi_analysis_settings.py" % (fsSubjectsDir, FS_SUBJECTS_DIR)
 
+    #=== Prepare log file name ===#
+    if ALL_STEPS.count(args.step) == 0:
+        raise Exception, "Unrecognized step name: %s" % args.step
+    
+    logDir = os.path.join(sDir, "logs")
+    check_dir(logDir, bCreate=True)
+    
+    logFileName = os.path.join(logDir, args.step + ".log")
 
     #==== Main branches ====#
     if args.step == "convert":
@@ -652,23 +660,27 @@ if __name__ == "__main__":
         roiList = roiList.aROIs
 
         if args.parcName == "" or args.parcName == None:
-            raise Exception, "Compulsory --parc option not supplied for step %s" \
-                                 % args.step
+            error_log("Compulsory --parc option not supplied for step %s" \
+                      % args.step,
+                      logFN=logFileName)
         
         if SURF_CLASSIFIERS["name"].count(args.parcName) == 0:
-            raise Exception, "Parcellation '%s' is not found in dwi_analysis_settings.py" % args.parcName
-
+            error_log("Parcellation '%s' is not found in dwi_analysis_settings.py" \
+                      % args.parcName,
+                      logFN=logFileName)
 
         if args.seed == None:
-            raise Exception, "Compulsory --seed option not supplied for step %s" \
-                             % args.step
+            error_log("Compulsory --seed option not supplied for step %s" \
+                      % args.step,
+                      logFN=logFileName)
         
         seedList = []
         if args.seed[0].endswith("_all"):
             # All ROIs in one hemisphere (of the parcellation paradigm)
             t_hemi = args.seed[0].replace("_all", "")
             if HEMIS.count(t_hemi) == 0:
-                raise Exception, "Unrecognized hemisphere name: %s" % t_hemi
+                error_log("Unrecognized hemisphere name: %s" % t_hemi,
+                          logFN=logFileName)
             for (i0, troi) in enumerate(roiList):
                 seedList.append("%s_%s" % (t_hemi, troi[0]))
         else:
@@ -740,7 +752,8 @@ if __name__ == "__main__":
                            doSeedNorm=True, doSize=True, 
                            doTargMaskedFDT=True, 
                            ccStop=False, 
-                           bRedo=args.bRedo)
+                           bRedo=args.bRedo,
+                           logFN=logFileName)
     elif args.step == "cort_conn_mat":
         #=== Calculate the cortical connectivity matrix ===#
         #===     from the probtrackx results ===#

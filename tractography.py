@@ -2,7 +2,8 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
                    doSeedNorm=True, doSize=True, 
                    doTargMaskedFDT=True, 
                    ccStop=False, 
-                   bRedo=False):
+                   bRedo=False,
+                   logFN=None):
 #=========================================================#
 # Mode 1: from seed to targ
 #         Specify both seedMask and targMask
@@ -16,8 +17,11 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
 #=========================================================#
     import os
     from scai_utils import check_file, check_dir, check_bin_path, \
-                           saydo, cmd_stdout
+                           saydo, cmd_stdout, info_log, error_log
     from mri_utils import nz_voxels
+
+    # DEBUG
+    print("logFN = %s" % logFN)
     
     #== Get seed and targ nvox ==#
     check_file(seedMask)
@@ -60,7 +64,7 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
     fdt_paths_fn = os.path.join(outDir, "fdt_paths.nii.gz")
 
     if not os.path.isfile(fdt_paths_fn) or bRedo:
-        saydo(cmd)
+        saydo(cmd, logFN=logFN)
 
     #== Check for probtrackx completion ==#
     check_file(fdt_paths_fn)
@@ -79,7 +83,7 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
     norm_cmd = "fslmaths -dt float %s -div %d %s -odt float" % \
                (fdt_paths_fn, seed_nVoxels, fdt_paths_norm_fn)
     if not os.path.isfile(fdt_paths_norm_fn) or bRedo:
-        saydo(norm_cmd)
+        saydo(norm_cmd, logFN=logFN)
         
     check_file(fdt_paths_norm_fn)
 
@@ -91,7 +95,8 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
         seed_size_f.close()
         check_file(seed_size_fn)
 
-        print("INFO: Saved seed size data to file: %s" % seed_size_fn)
+        info_log("INFO: Saved seed size data to file: %s" % seed_size_fn, 
+                 logFN=logFN)
 
         if targMask != None:
             #== Write to targ size file ==#
@@ -101,7 +106,8 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
             targ_size_f.close()
             check_file(targ_size_fn)
 
-            print("INFO: Saved targ size data to file: %s" % targ_size_fn)
+            info_log("INFO: Saved targ size data to file: %s" % targ_size_fn,
+                     logFN=logFN)
 
     if (targMask != None) and doTargMaskedFDT:
         #== Get target masked tract density ==#
@@ -121,8 +127,9 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
 
         check_file(targ_masked_norm_fdt_fn)
 
-        print("INFO: Saved target-masked normalized FDT value tofile: %s" \
-              % targ_masked_norm_fdt_fn)
+        info_log("INFO: Saved target-masked normalized FDT value tofile: %s" \
+                 % targ_masked_norm_fdt_fn,
+                 logFN=logFN)
 
 def check_probtrackx_complete(trackResDir, mode, doSeedNorm=True, doSize=True):
 # Mode: seedOnly or seedTarg
@@ -192,7 +199,7 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
     nROIs = len(roiNames)
     assert(len(nzIdx) == nROIs)
     if len(np.unique(mask_shapes)) != 1:
-        raise Exception, "Non-unique matrix size among the mask files"
+        error_log("Non-unique matrix size among the mask files", logFN=logFN)
     imgShape = np.unique(mask_shapes)[0]
 
     #=== Check the completion of seed-only probtrackx ===#
@@ -227,4 +234,6 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
     savemat(connFN, res)
     check_file(connFN)
         
-    print("INFO: Connectivity matrix and associated data were saved at: %s" % (connFN))
+    info_log("INFO: Connectivity matrix and associated data were saved at: %s" \
+             % (connFN),
+             logFN=logFN)
