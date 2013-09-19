@@ -218,7 +218,7 @@ if __name__ == "__main__":
     if args.step == "convert":
         #=== Run DWIConvert ===#
         #== Check the path to DWIConvert ==#
-        check_bin_path("DWIConvert")
+        check_bin_path("DWIConvert", logFN=logFileName)
         
         from dtiprep_utils import format_bvals_bvecs
         format_bvals_bvecs(bvalsFN, bvecsFN)
@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
     elif args.step == "postqc":
         #=== Convert the qc'ed nrrd to nifti ===#
-        check_bin_path("DWIConvert")
+        check_bin_path("DWIConvert", logFN=logFileName)
 
         qcedBVecs_unc = os.path.join(dtiprepDir, "dwi_qced.bvecs.uncorrected")
 
@@ -312,7 +312,7 @@ if __name__ == "__main__":
         from freesurfer_utils import check_fs_ver
         check_fs_ver(5.1, mode="eqgt")
         
-        check_bin_path("trac-all")
+        check_bin_path("trac-all", logFN=logFileName)
 
         #=== Check input FreeSurfer subject ID ===#
         if len(fsSubjID) == 0:
@@ -366,7 +366,7 @@ if __name__ == "__main__":
         from freesurfer_utils import check_fs_ver
         check_fs_ver(5.1, mode="eqgt")
 
-        check_bin_path("trac-all")
+        check_bin_path("trac-all", logFN=logFileName)
         
         #== Check some prerequisite files ==#
         check_file(traculaCfgFN, logFN=logFileName)
@@ -426,7 +426,7 @@ if __name__ == "__main__":
         check_file(v1FN, logFN=logFileName)
 
         #=== Check fslview ===#
-        check_bin_path("fslview")
+        check_bin_path("fslview", logFN=logFileName)
         
         viewCmd = "fslview %s %s" % (faFN, v1FN)
         saydo(viewCmd, logFN=logFileName)
@@ -435,7 +435,7 @@ if __name__ == "__main__":
         check_dir(xfmsDir, logFN=logFileName)
 
         #=== tkregister2 path check ===#
-        check_bin_path("tkregister2")
+        check_bin_path("tkregister2", logFN=logFileName)
 
         #=== Check input FreeSurfer subject ID ===#
         if len(fsSubjID) == 0:
@@ -480,8 +480,8 @@ if __name__ == "__main__":
         check_file(initMat, logFN=logFileName)
 
         #=== Programs: path checks ===#
-        check_bin_path("tkregister2")
-        check_bin_path("flirt")
+        check_bin_path("tkregister2", logFN=logFileName)
+        check_bin_path("flirt", logFN=logFileName)
 
         #=== flirt for initialization ===#
         flirtInitOut = os.path.join(dmriDir, "lowb_brain_flirt2anatorig.nii.gz")
@@ -531,7 +531,7 @@ if __name__ == "__main__":
         from freesurfer_utils import check_fs_ver
         check_fs_ver(PARC_FS_VER, mode="eq")
 
-        check_bin_path("mris_ca_label")
+        check_bin_path("mris_ca_label", logFN=logFileName)
 
         parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
         gcsw = SURF_CLASSIFIERS["gcs"][parcIdx]
@@ -565,7 +565,7 @@ if __name__ == "__main__":
         from dwi_analysis_settings import WM_DEPTHS
         wmDepths = WM_DEPTHS
 
-        check_bin_path("mri_aparc2aseg")
+        check_bin_path("mri_aparc2aseg", logFN=logFileName)
 
         from mri_utils import invert_fsl_xfm_mat
         from mri_utils import flirt_apply_xfm
