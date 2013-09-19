@@ -54,6 +54,9 @@ if __name__ == "__main__":
                     help="Type of mask for tractography (e.g, gm, wm1mm), required by the cort_conn_mat step")
     ap.add_argument("--speech", dest="bSpeech", action="store_true", 
                     help="Use speech subnetwork (option for step cort_conn_mat")
+    ap.add_argument("--skip-mris-ca-label", dest="bSkipMRISCALabel",
+                    action="store_true",
+                    help="Skip the mris_ca_label sub-step in step parcellate")
 
     #                help="Seed ROI for probtrackx")
     #ap.add_argument("--targ", dest="targ", type=str, \
@@ -531,13 +534,14 @@ if __name__ == "__main__":
         from freesurfer_utils import check_fs_ver
         check_fs_ver(PARC_FS_VER, mode="eq")
 
-        check_bin_path("mris_ca_label", logFN=logFileName)
-
         parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
+        list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
         gcsw = SURF_CLASSIFIERS["gcs"][parcIdx]
         ctab = SURF_CLASSIFIERS["ctab"][parcIdx]
-        list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
 
+        if not args.bSkipMRISCALabel:
+            check_bin_path("mris_ca_label", logFN=logFileName)
+        
         check_file(ctab, logFN=logFileName)
 
         check_dir(annotDir, bCreate=True, logFN=logFileName)
@@ -548,15 +552,18 @@ if __name__ == "__main__":
         annotFNs = {}
         #== Step 1: mris_ca_label ==#
         for hemi in HEMIS:
-            gcss[hemi] = gcsw.replace("{hemi}", hemi)
-            check_file(gcss[hemi], logFN=logFileName)
-
             annotFNs[hemi] = os.path.join(labelDir, \
-                                          "%s.%s.annot" % (hemi, args.parcName))
-            labelCmd = "mris_ca_label -t %s %s %s " % (ctab, fsSubjID, hemi) + \
-                       "sphere.reg %s %s" % (gcss[hemi], annotFNs[hemi])
+                                          "%s.%s.annot" \
+                                          % (hemi, args.parcName))
+            
+            if not args.bSkipMRISCALabel:
+                gcss[hemi] = gcsw.replace("{hemi}", hemi)
+                check_file(gcss[hemi], logFN=logFileName)
+                
+                labelCmd = "mris_ca_label -t %s %s %s " % (ctab, fsSubjID, hemi) + \
+                           "sphere.reg %s %s" % (gcss[hemi], annotFNs[hemi])
 
-            if not os.path.isfile(annotFNs[hemi]) or args.bRedo:
+                #if not os.path.isfile(annotFNs[hemi]) or args.bRedo:
                 saydo(labelCmd, logFN=logFileName)
 
             check_file(annotFNs[hemi], logFN=logFileName)
