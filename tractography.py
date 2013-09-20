@@ -232,6 +232,6 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
     savemat(connFN, res)
     check_file(connFN, logFN=logFN)
         
-    info_log("INFO: Connectivity matrix and associated data were saved at: %s" \
+    info_log("Connectivity matrix and associated data were saved at: %s" \
              % (connFN),
              logFN=logFN)

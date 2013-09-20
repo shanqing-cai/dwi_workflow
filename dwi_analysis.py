@@ -22,6 +22,7 @@ ALL_STEPS = ["convert", "dtiprep", "postqc", \
              "tracula_prep", "tracula_bedp", \
              "fix_coreg", \
              "inspect_tensor", "inspect_coreg", \
+             "roi_tensor", \
              "parcellate", "inspect_parc", \
              "probtrackx", "cort_conn_mat"]
 
@@ -134,6 +135,8 @@ if __name__ == "__main__":
     v1FN = os.path.join(dmriDir, "dtifit_V1.nii.gz")
     lowbBrainFN = os.path.join(dmriDir, "lowb_brain.nii.gz")
     brainAnatOrigFN = os.path.join(dmriDir, "brain_anat_orig.nii.gz")
+
+    tensorDir = os.path.join(sDir, "tensor")
 
     xfmsDir = os.path.join(dmriDir, "xfms")
     diff2anatorig_mat = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
@@ -674,6 +677,39 @@ if __name__ == "__main__":
         saydo(tkrCmd, logFN=logFileName)
 
         saydo("rm -rf %s " % (tmpReg), logFN=logFileName)
+
+    elif args.step == "roi_tensor":
+        #=== ROI based averaging of tensor measures (FA and MD) ===#
+        
+
+        from dwi_analysis_settings import \
+             SURF_CLASSIFIERS, WM_DEPTHS, TENSOR_MEASURES
+
+        if args.parcName == "" or args.parcName == None:
+            error_log("Compulsory --parc option not supplied for step %s" \
+                      % args.step,
+                      logFN=logFileName)
+
+        if SURF_CLASSIFIERS["name"].count(args.parcName) == 0:
+            error_log("Parcellation '%s' is not found in dwi_analysis_settings.py" % args.parcName,
+                      logFN=logFileName)
+
+        parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
+        list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
+
+        roiList = __import__(list_py)
+        roiList = roiList.aROIs
+
+        check_dir(tensorDir, bCreate=True, logFN=logFileName)
+        tensMeasMatFN = os.path.join(tensorDir, "tensor_measures.mat")
+
+        wmDepths = [-1] + WM_DEPTHS
+        
+        from diffusion_tensor import calculate_roi_tensor_measures
+        calculate_roi_tensor_measures(args.parcName, roiList, wmDepths,
+                                      TENSOR_MEASURES, HEMIS,
+                                      dmriDir, annotDir,
+                                      tensMeasMatFN, logFileName)
         
     elif args.step == "probtrackx":
         #=== Probabilistic tractography ===#
