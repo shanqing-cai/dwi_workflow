@@ -52,7 +52,7 @@ projInfo = {"name": ["CAT",
                          "SEQ01C06", "SEQ03C07", "SEQ02C08", "SEQ01C10", "SEQ01C11",
                          "SEQ01C12", "SEQ03C13", "SEQ02C14", "SEQ04C15", "SEQ04C16",
                          "SEQ02C17"], \
-                        ["ANS_M01"], \
+                        ["ANS_M01", "AWS_M01"], \
                         ["FRS03001", "FRS03003", "FRS03005", "FRS03006", "FRS03007", 
                          "FRS03008", "FRS03011", "FRS03016"], \
                         ["CCRS03015", "CCRS03017", "CCRS03009", "CCRS03010", "CCRS03013"], \
@@ -88,7 +88,7 @@ projInfo = {"name": ["CAT",
                            "SEQPDS_FS21", "SEQPDS_FS22", "SEQPDS_FS23", "SEQPDS_FS24", "SEQPDS_FS25",
                            "SEQPDS_FS26", "SEQPDS_FS27", "SEQPDS_FS28", "SEQPDS_FS29", "SEQPDS_FS30",
                            "SEQPDS_FS31", "SEQPDS_FS32"], \
-                          ["RHY_ANS_M01"], \
+                          ["RHY_ANS_M01", "RHY_AWS_M01"], \
                           ["FRS_FS01", "FRS_FS03", "FRS_FS05", "FRS_FS06", "FRS_FS07",
                            "FRS_FS08", "FRS_FS11", "FRS_FS16"], \
                           ["CCRS_FS01", "CCRS_FS04", "CCRS_FS12", "CCRS_FS13", "CCRS_FS15"], \
@@ -99,7 +99,7 @@ projInfo = {"name": ["CAT",
                           "ngz",
                           "DICOM",
                           "DICOM",
-                          "DICOM",
+                          "ngz",
                           "DICOM",
                           "DICOM",
                           "DICOM"],
@@ -107,7 +107,7 @@ projInfo = {"name": ["CAT",
                         "/speechlab/5/scai/BACKUP/DATA/{subjID}/diffusion/*.nii.gz",
                         "/speechlab/3/overduin/data/2???????/{subjID}/mri",
                         "/speechlab/home/dsbeal/SEQPDS_orig/{subjID}/TrioTim-*",
-                        "/speechlab/5/scai/RHY/RAWDATA/{subjID}",
+                        "/speechlab/5/scai/RHY/DATA/{subjID}/diffusion/{subjID}_diffusion_s???a???.nii.gz",
                         "/speechlab/2/jsegawa/FRS03/rawdata/{subjID}/TrioTim*",
                         "/speechlab/4/disk2/jsegawa/CCRS03/rawdata/{subjID}/TrioTim-*",
                         "/speechlab/2/jsegawa/SEQ03_pass1/RAWDATA/{subjID}/TrioTim-*"],
@@ -115,7 +115,7 @@ projInfo = {"name": ["CAT",
                           "/speechlab/5/scai/BACKUP/DATA/{subjID}/diffusion/*.bvals",
                           "", 
                           "",
-                          "",
+                          "/speechlab/5/scai/RHY/DATA/{subjID}/diffusion/{subjID}_diffusion_s???a???.bval",
                           "",
                           "",
                           ""], \
@@ -123,7 +123,7 @@ projInfo = {"name": ["CAT",
                           "/speechlab/5/scai/BACKUP/DATA/{subjID}/diffusion/*.bvecs",
                           "",
                           "",
-                          "",
+                          "/speechlab/5/scai/RHY/DATA/{subjID}/diffusion/{subjID}_diffusion_s???a???.bvec",
                           "",
                           "", 
                           ""], \
@@ -131,7 +131,7 @@ projInfo = {"name": ["CAT",
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 39, 
                        [np.array([[1,0,0],[0,-1,0],[0,0,-1]])] * 11, 
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 32, 
-                       [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 1,
+                       [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 2,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 8,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 5,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 11]}

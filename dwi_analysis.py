@@ -81,7 +81,11 @@ if __name__ == "__main__":
 
     #== Locate the input 4d data ==#
     rawFN = rawFN.replace("{subjID}", "%s")
-    rawFN %= args.subjID
+
+    nForm = rawFN.count("%s")
+    fileNameFormVals = tuple([args.subjID] * nForm)
+    
+    rawFN %= fileNameFormVals
     rawFN = glob.glob(rawFN)
 
     assert(len(rawFN) == 1)
@@ -165,14 +169,16 @@ if __name__ == "__main__":
     #== Locate the bvals and bvecs files ==#
     if len(projInfo["bvalsPath"][pidx]) > 0:
         bvalsFN = \
-            projInfo["bvalsPath"][pidx].replace("{subjID}", "%s") % args.subjID
+            projInfo["bvalsPath"][pidx].replace("{subjID}", "%s") \
+            % fileNameFormVals
         bvalsFN = glob.glob(bvalsFN)
         assert(len(bvalsFN) == 1)
         bvalsFN = bvalsFN[0]
         check_file(bvalsFN, logFN=logFileName)
 
         bvecsFN = \
-            projInfo["bvecsPath"][pidx].replace("{subjID}", "%s") % args.subjID
+            projInfo["bvecsPath"][pidx].replace("{subjID}", "%s") \
+            % fileNameFormVals
         bvecsFN = glob.glob(bvecsFN)
         assert(len(bvecsFN) == 1)
         bvecsFN = bvecsFN[0]
