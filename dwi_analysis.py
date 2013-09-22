@@ -482,7 +482,7 @@ if __name__ == "__main__":
     elif args.step == "fix_coreg":
         #=== Files and directories check ===#
         check_dir(xfmsDir, logFN=logFileName)
-        check_file(diff2anatorig_mat, logFN=logFileName)
+        #check_file(diff2anatorig_mat, logFN=logFileName)
 
         check_file(lowbBrainFN, logFN=logFileName)
         check_file(brainAnatOrigFN, logFN=logFileName)
