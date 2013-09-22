@@ -514,10 +514,13 @@ if __name__ == "__main__":
         check_file(flirtInitDat, logFN=logFileName)
 
         #=== Backup the old xfm ===#
-        diff2anatorig_mat_backup = os.path.join(xfmsDir, \
-                                                "diff2anatorig.bbr.mat.old")
-        saydo("mv %s %s" % (diff2anatorig_mat, diff2anatorig_mat_backup), logFN=logFileName)
-        check_file(diff2anatorig_mat_backup, logFN=logFileName)
+        if os.path.isfile(diff2anatorig_mat):
+            diff2anatorig_mat_backup = os.path.join(xfmsDir, \
+                                                    "diff2anatorig.bbr.mat.old")
+            saydo("mv %s %s" \
+                  % (diff2anatorig_mat, diff2anatorig_mat_backup), 
+                  logFN=logFileName)
+            check_file(diff2anatorig_mat_backup, logFN=logFileName)
 
         #=== Run bbregister2 ===#
         diff2anatorig_dat = os.path.join(xfmsDir, "diff2anatorig.bbr.dat")
