@@ -52,7 +52,8 @@ projInfo = {"name": ["CAT",
                          "SEQ01C06", "SEQ03C07", "SEQ02C08", "SEQ01C10", "SEQ01C11",
                          "SEQ01C12", "SEQ03C13", "SEQ02C14", "SEQ04C15", "SEQ04C16",
                          "SEQ02C17"], \
-                        ["ANS_M01", "AWS_M01", "ANS_M06", "ANS_M07"], \
+                        ["ANS_M01", "AWS_M01", "ANS_M06", 
+                         "ANS_M07", "ANS_M05"], \
                         ["FRS03001", "FRS03003", "FRS03005", "FRS03006", "FRS03007", 
                          "FRS03008", "FRS03011", "FRS03016"], \
                         ["CCRS03015", "CCRS03017", "CCRS03009", "CCRS03010", "CCRS03013"], \
@@ -88,7 +89,8 @@ projInfo = {"name": ["CAT",
                            "SEQPDS_FS21", "SEQPDS_FS22", "SEQPDS_FS23", "SEQPDS_FS24", "SEQPDS_FS25",
                            "SEQPDS_FS26", "SEQPDS_FS27", "SEQPDS_FS28", "SEQPDS_FS29", "SEQPDS_FS30",
                            "SEQPDS_FS31", "SEQPDS_FS32"], \
-                          ["RHY_ANS_M01", "RHY_AWS_M01", "RHY_ANS_M06"], \
+                          ["RHY_ANS_M01", "RHY_AWS_M01", "RHY_ANS_M06", 
+                           "RHY_ANS_M07", "RHY_ANS_M05"], \
                           ["FRS_FS01", "FRS_FS03", "FRS_FS05", "FRS_FS06", "FRS_FS07",
                            "FRS_FS08", "FRS_FS11", "FRS_FS16"], \
                           ["CCRS_FS01", "CCRS_FS04", "CCRS_FS12", "CCRS_FS13", "CCRS_FS15"], \
@@ -131,7 +133,7 @@ projInfo = {"name": ["CAT",
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 39, 
                        [np.array([[1,0,0],[0,-1,0],[0,0,-1]])] * 11, 
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 32, 
-                       [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 4,
+                       [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 5,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 8,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 5,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 11]}
