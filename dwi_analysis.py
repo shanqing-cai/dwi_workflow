@@ -68,6 +68,7 @@ if __name__ == "__main__":
     info_log("Number of ordered analysis steps = %d" % len(steps))
     for (i0, t_step) in enumerate(steps):
         info_log("%d: %s" % (i0, t_step))
+    info_log("")
 
     #=== Locate entry in projInfo ===#
     pidx = projInfo["name"].index(args.projName)
@@ -744,87 +745,111 @@ if __name__ == "__main__":
                 error_log("Compulsory --seed option not supplied for step %s" \
                           % t_step,
                           logFN=logFileName)
+            
+            seedReg = args.seed[0].split(",") # Seed regions (lh_all, rh_vPMC)
+            seedTyp = args.seed[1].split(",") # Seed types (gm, wm1mm)
 
-            seedList = []
-            if args.seed[0].endswith("_all"):
-                # All ROIs in one hemisphere (of the parcellation paradigm)
-                t_hemi = args.seed[0].replace("_all", "")
-                if HEMIS.count(t_hemi) == 0:
-                    error_log("Unrecognized hemisphere name: %s" % t_hemi,
-                              logFN=logFileName)
-                for (i0, troi) in enumerate(roiList):
-                    seedList.append("%s_%s" % (t_hemi, troi[0]))
-            else:
-                # Single seed ROI
-                seedList.append(args.seed[0])
-            seedList.sort()
+            for (k0, t_seedReg) in enumerate(seedReg):
+                for (k1, t_seedTyp) in enumerate(seedTyp):
+                    info_log("Working on seed region %s and seed type %s" %
+                             (t_seedReg, t_seedTyp), logFN=logFileName)
+                    
+                    seedList = []
+                    
+                    if t_seedReg.endswith("_all"):
+                        # All ROIs in one hemisphere
+                        # of the parcellation paradigm
+                        t_hemi = t_seedReg.replace("_all", "")
+                        if HEMIS.count(t_hemi) == 0:
+                            error_log("Unrecognized hemisphere name: %s" \
+                                      % t_hemi,
+                                      logFN=logFileName)
 
-            #== Target files ==#
-            parcDir = os.path.join(annotDir, args.parcName)
-            if args.targ != None:
-                typeDir = os.path.join(parcDir, args.targ[1])
-                check_dir(typeDir, logFN=logFileName)
-                volStatsFN = os.path.join(typeDir, "vol_stats.mat")
-                check_file(volStatsFN, logFN=logFileName)
+                        for (i0, troi) in enumerate(roiList):
+                            seedList.append("%s_%s" % (t_hemi, troi[0]))
+                    else:
+                        # Single seed ROI
+                        seedList.append(t_seedReg)
+                        seedList.sort()
 
-                targMask = os.path.join(typeDir, "%s.diff.nii.gz" % args.targ[0])
-                check_file(targMask, logFN=logFileName)
-            else:
-                targMask = None
+                        
+                    parcDir = os.path.join(annotDir, args.parcName)
+                    check_dir(parcDir, logFN=logFileName)
+                    
+                    #== Target files ==#
+                    if args.targ != None and args.targ.count(",") > 0:
+                        error_log("dwi_analysis.py currently does not support multiple targets mode", logFN=logFileName)
+                    if args.targ != None:
+                        typeDir = os.path.join(parcDir, args.targ[1])
+                        check_dir(typeDir, logFN=logFileName)
+                        volStatsFN = os.path.join(typeDir, "vol_stats.mat")
+                        check_file(volStatsFN, logFN=logFileName)
 
-            #== Check directories and files ==#
-            check_dir(annotDir, logFN=logFileName)
+                        targMask = os.path.join(typeDir,
+                                                "%s.diff.nii.gz"
+                                                % args.targ[0])
+                        check_file(targMask, logFN=logFileName)
+                    else:
+                        targMask = None
 
-            check_dir(parcDir, logFN=logFileName)
+                    check_dir(annotDir, logFN=logFileName)
 
-            typeDir = os.path.join(parcDir, args.seed[1])
-            check_dir(typeDir, logFN=logFileName)
-            volStatsFN = os.path.join(typeDir, "vol_stats.mat")
-            check_file(volStatsFN, logFN=logFileName)
+                    #== Check directories and files ==#
+                    typeDir = os.path.join(parcDir, args.seed[1])
+                    check_dir(typeDir, logFN=logFileName)
+                    volStatsFN = os.path.join(typeDir, "vol_stats.mat")
+                    check_file(volStatsFN, logFN=logFileName)
 
-            check_dir(tracksDir, bCreate=True, logFN=logFileName)
+                    check_dir(tracksDir, bCreate=True, logFN=logFileName)
 
-            parcTracksDir = os.path.join(tracksDir, args.parcName)
-            check_dir(parcTracksDir, bCreate=True, logFN=logFileName)
+                    parcTracksDir = os.path.join(tracksDir, args.parcName)
+                    check_dir(parcTracksDir, bCreate=True, logFN=logFileName)
 
-            #== bedp merged files and brain mask ==#
-            check_dir(bedpDir, logFN=logFileName)
+                    #== bedp merged files and brain mask ==#
+                    check_dir(bedpDir, logFN=logFileName)
 
-            from tracula_utils import check_bedp_complete
-            check_bedp_complete(bedpDir)
+                    from tracula_utils import check_bedp_complete
+                    check_bedp_complete(bedpDir)
+                    
+                    bedpBase = os.path.join(bedpDir, "merged")
 
-            bedpBase = os.path.join(bedpDir, "merged")
+                    brainMask = os.path.join(bedpDir,
+                                             "nodif_brain_mask.nii.gz")
+                    check_file(brainMask, logFN=logFileName)
 
-            brainMask = os.path.join(bedpDir, "nodif_brain_mask.nii.gz")
-            check_file(brainMask, logFN=logFileName)
+                    #== Iterate through all seed ROIs ==#
+                    from tractography import run_probtrackx
 
-            #== Iterate through all seed ROIs ==#
-            from tractography import run_probtrackx
+                    for (i0, seedROI) in enumerate(seedList):
+                        #= Seed files =#
+                        seedMask = os.path.join(typeDir,
+                                                "%s.diff.nii.gz" % seedROI)
 
-            for (i0, seedROI) in enumerate(seedList):
-                #= Seed files =#
-                seedMask = os.path.join(typeDir, "%s.diff.nii.gz" % seedROI)
-                check_file(seedMask, logFN=logFileName)
+                        
+                        check_file(seedMask, logFN=logFileName)
 
-                #== Prepare output directory ==#
-                if args.targ != None:
-                    outDir = os.path.join(parcTracksDir, 
-                                  "%s_%s_to_%s_%s" % (seedROI, args.seed[1], 
-                                                      args.targ[0], args.targ[1]))
-                else:
-                    outDir = os.path.join(parcTracksDir, 
-                                          "%s_%s" % (seedROI, args.seed[1]))
+                        if args.targ != None:
+                            #== Prepare output directory ==#
 
-                check_dir(outDir, bCreate=True, logFN=logFileName)
+                            outDir = os.path.join(parcTracksDir, 
+                                                  "%s_%s_to_%s_%s"
+                                                  % (seedROI, args.seed[1], 
+                                                     args.targ[0], args.targ[1]))
+                        else:
+                            outDir = os.path.join(parcTracksDir, 
+                                                  "%s_%s"
+                                                  % (seedROI, args.seed[1]))
 
-                #== Do the work ==#
+                        check_dir(outDir, bCreate=True, logFN=logFileName)
 
-                run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir, 
-                               doSeedNorm=True, doSize=True, 
-                               doTargMaskedFDT=True, 
-                               ccStop=False, 
-                               bRedo=args.bRedo,
-                               logFN=logFileName)
+                        #== Do the work ==#
+                        run_probtrackx(seedMask, targMask, bedpBase, brainMask,
+                                       outDir, 
+                                       doSeedNorm=True, doSize=True, 
+                                       doTargMaskedFDT=True, 
+                                       ccStop=False, 
+                                       bRedo=args.bRedo,
+                                       logFN=logFileName)
         elif t_step == "cort_conn_mat":
             #=== Calculate the cortical connectivity matrix ===#
             #===     from the probtrackx results ===#
@@ -842,11 +867,17 @@ if __name__ == "__main__":
             if args.hemi == None or args.hemi == "":
                 error_log("Required option hemi is not supplied during step %s" % t_step,
                           logFN=logFileName)
-            assert(HEMIS.count(args.hemi) == 1)
+
+            hemis = args.hemi.split(",")
+
+            for (k0, t_hemi) in enumerate(hemis):
+                assert(HEMIS.count(t_hemi) == 1)
 
             if args.maskType == None or args.maskType == "":
                 error_log("Required option maskType is not supplied during step %s" % t_step,
                           logFN=logFileName)
+                
+            maskTypes = args.maskType.split(",")
 
             parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
             list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
@@ -856,32 +887,37 @@ if __name__ == "__main__":
 
             #=== Check the existence of all masks (diffusion-space) ===#
             parcDir = os.path.join(annotDir, args.parcName)
-            typeDir = os.path.join(parcDir, args.maskType)
 
-            check_dir(parcDir, logFN=logFileName)
-            check_dir(typeDir, logFN=logFileName)
+            for (k0, t_hemi) in enumerate(hemis):
+                for (k1, t_maskType) in enumerate(maskTypes):
+                    info_log("Working on hemisphere %s and mask type %s"
+                             % (t_hemi, t_maskType))
+                    
+                    typeDir = os.path.join(parcDir, t_maskType)
 
-            check_dir(tracksDir, logFN=logFileName)
+                    check_dir(parcDir, logFN=logFileName)
+                    check_dir(typeDir, logFN=logFileName)
 
-            parcTracksDir = os.path.join(tracksDir, args.parcName)
-            check_dir(parcTracksDir, logFN=logFileName)
+                    check_dir(tracksDir, logFN=logFileName)
 
-            #=== File name of the output ===#
-            check_dir(connDir, bCreate=True, logFN=logFileName)
+                    parcTracksDir = os.path.join(tracksDir, args.parcName)
+                    check_dir(parcTracksDir, logFN=logFileName)
 
-            connFN = "%s_%s_%s" \
-                     % (args.parcName, args.maskType, args.hemi)
-            if args.bSpeech:
-                connFN += ".speech"
-            connFN += ".mat"
-            connFN = os.path.join(connDir, connFN)
+                    #=== File name of the output ===#
+                    check_dir(connDir, bCreate=True, logFN=logFileName)
 
-            from tractography import generate_cort_conn_mat
-            generate_cort_conn_mat(roiList, typeDir, parcTracksDir, args.hemi, 
-                                   args.bSpeech,  args.maskType, connFN,
-                                   logFN=logFileName)
-
-
+                    connFN = "%s_%s_%s" \
+                             % (args.parcName, t_maskType, t_hemi)
+                    if args.bSpeech:
+                        connFN += ".speech"
+                        connFN += ".mat"
+                        connFN = os.path.join(connDir, connFN)
+                        
+                    from tractography import generate_cort_conn_mat
+                    generate_cort_conn_mat(roiList, typeDir, parcTracksDir,
+                                           t_hemi, args.bSpeech,
+                                           t_maskType, connFN, 
+                                           logFN=logFileName)
 
         else:
             error_log("Unrecognized step: %s" % t_step, logFN=logFileName)
