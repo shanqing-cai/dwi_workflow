@@ -910,8 +910,9 @@ if __name__ == "__main__":
                              % (args.parcName, t_maskType, t_hemi)
                     if args.bSpeech:
                         connFN += ".speech"
-                        connFN += ".mat"
-                        connFN = os.path.join(connDir, connFN)
+                        
+                    connFN += ".mat"
+                    connFN = os.path.join(connDir, connFN)
                         
                     from tractography import generate_cort_conn_mat
                     generate_cort_conn_mat(roiList, typeDir, parcTracksDir,

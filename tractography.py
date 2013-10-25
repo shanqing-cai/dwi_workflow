@@ -226,10 +226,13 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
     #=== Make symmetric ===#
     connMat = 0.5 * (connMat + connMat.T)
 
+    print(connMat) ## DEBUG
+
     #=== Write result .mat file ===#
     from scipy.io import savemat
     res = {"roiNames": roiNames, "connMat": connMat}
     savemat(connFN, res)
+    print("connFN = " + connFN)
     check_file(connFN, logFN=logFN)
         
     info_log("Connectivity matrix and associated data were saved at: %s" \
