@@ -56,6 +56,9 @@ if __name__ == "__main__":
     ap.add_argument("--skip-mris-ca-label", dest="bSkipMRISCALabel",
                     action="store_true",
                     help="Skip the mris_ca_label sub-step in step parcellate")
+    ap.add_argument("--use-fslview", dest="bUseFslview",
+                    action="store_true",
+                    help="Use fslview in lieu of tkregister2")
     
     if len(sys.argv) == 1:
         ap.print_help()
@@ -476,10 +479,15 @@ if __name__ == "__main__":
             check_file(faAnatOrig, logFN=logFileName)
 
             tmpIdentity = tempfile.mktemp() + ".dat"
-            tkrCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
-                     % (fsT1NGZ, faAnatOrig, tmpIdentity) + \
-                     "--s %s --surfs " % (fsSubjID)
-            saydo(tkrCmd, logFN=logFileName)
+
+            if not args.bUseFslview:
+                inspCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
+                          % (fsT1NGZ, faAnatOrig, tmpIdentity) + \
+                          "--s %s --surfs " % (fsSubjID)
+            else:
+                inspCmd = "fslview %s %s " % (fsT1NGZ, faAnatOrig)
+                
+            saydo(inspCmd, logFN=logFileName)
             saydo("rm -f %s" % tmpIdentity, logFN=logFileName)
 
         elif t_step == "fix_coreg":
@@ -684,12 +692,15 @@ if __name__ == "__main__":
 
             tmpReg = tempfile.mktemp() + ".dat"
 
-            tkrCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
-                     % (faFN, parcVolDiff, tmpReg)
-            saydo(tkrCmd, logFN=logFileName)
+            if args.bUseFslview:
+                inspCmd = "fslview %s %s " % (faFN, parcVolDiff)
+            else:
+                inspCmd = "tkregister2 --targ %s --mov %s --identity --reg %s " \
+                          % (faFN, parcVolDiff, tmpReg)
+            saydo(inspCmd, logFN=logFileName)
 
             saydo("rm -rf %s " % (tmpReg), logFN=logFileName)
-
+            
         elif t_step == "roi_tensor":
             #=== ROI based averaging of tensor measures (FA and MD) ===#
 
