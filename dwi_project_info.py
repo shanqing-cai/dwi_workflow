@@ -27,9 +27,6 @@
 #
 #==========================================================#
 
-
-
-
 import numpy as np
 
 projInfo = {"name": ["CAT",
@@ -185,3 +182,11 @@ projInfo = {"name": ["CAT",
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 5,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 11,
                        [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 5]}
+
+if __name__ == "__main__":
+    matFN = "dwi_project_info.mat"
+
+    from scipy.io import savemat
+
+    savemat(matFN, projInfo)
+
