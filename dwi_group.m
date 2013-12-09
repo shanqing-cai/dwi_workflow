@@ -3,7 +3,10 @@ function dwi_group(anaType, grpScheme, varargin)
 % Input arguments:
 %       anaType: analysis type {FA, MD, TNS}
 %                TNS - tract density normalized by seed size
-%       grpScheme: grouping scheme {byStudy, byGroup}
+%       grpScheme: grouping scheme {byStudy, byGroup, rep, byAge}
+%                   rep - Reproducibility test: multiple sessions on the
+%                         same subject
+%                   age - Analayze age effects
 %
 %       --roi roiName: region of interest (ROI) name
 %                       (e.g., for FA: lh_vPMC; 
@@ -15,20 +18,27 @@ function dwi_group(anaType, grpScheme, varargin)
 %                           e.g., --exclude-subjects CAT_12,SEQPDS_SEQ02P10
 %       --norm-by-all: normalize the FA, MD or other tensor measures by the
 %                      average of all ROIs
+%       --no-self:     remove the self-projections in the TNS analysis
+%                      Self-projections refers to the projection from an ROI to itself                    
+%       --rand-other: Use random other individual subject to compare with
+%                     the TNS measure of the repeated subject.
 %       -v | --verbose: verbose mode
 %
 %%
 ANALYSIS_TYPES = {'FA', 'MD', 'TNS'};
-GROUPING_SCHEMES = {'byStudy', 'byGroup'};
+GROUPING_SCHEMES = {'byStudy', 'byGroup', 'rep', 'byAge'};
 
 analysisSettingsMat = 'dwi_analysis_settings.mat';
 projInfoMat = 'dwi_project_info.mat';
 
 DEFAULT_PARC = 'aparc12';
 
+%% Other constants
+MIN_TNS = 1e-6;
+
 %% Visualization options
 COLORS = {[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0.5, 1], ...
-          [0.5, 1, 0], [0.5, 0, 1], [0.5, 0.5, 0], [0, 1, 1], ...
+          [0.5, 0.25, 0], [0.5, 0, 1], [0.5, 0.5, 0], [0, 1, 1], ...
           [1, 0.25, 0.75], [0.25, 1, 0.75], [0.75, 0.25, 1], [1, 0.75, 0.25], ...
           [0.5, 0.5, 0.25], [0.5, 0.25, 0.75], [0.75, 0.25, 0.5], [0.75, 0.5, 0.5]};
 fontSize = 12;
@@ -60,6 +70,9 @@ else
 end
 
 bNormByAll = ~isempty(fsic(varargin, '--norm-by-all'));
+args.bNoSelf = ~isempty(fsic(varargin, '--no-self'));
+
+args.bRandOther = ~isempty(fsic(varargin, '--rand-other'));
 
 args.bv = ~isempty(fsic(varargin, '-v')) || ~isempty(fsic(varargin, '--verbose'));
 
@@ -73,22 +86,24 @@ if isempty(fsic(GROUPING_SCHEMES, args.grpScheme))
 end
 
 if isequal(args.anaType, 'TNS')
-    assert(length(strfind(args.roi, '-')) == 1);
-    rois = splitstring(args.roi, '-');
-    seedROI = rois{1};
-    targROI = rois{2};
+    if ~(isequal(args.roi, 'lh_all') || isequal(args.roi, 'rh_all'))
+        assert(length(strfind(args.roi, '-')) == 1);
+        rois = splitstring(args.roi, '-');
+        seedROI = rois{1};
+        targROI = rois{2};
 
-    assert(length(strfind(seedROI, '_')) == 1);
-    assert(length(strfind(targROI, '_')) == 1);
-    
-    items = splitstring(seedROI, '_');
-    seedHemi = items{1};
-    seedROI = items{2};
-    items = splitstring(targROI, '_');
-    targHemi = items{1};
-    targROI = items{2};
-    
-    assert(isequal(seedHemi, targHemi)); % May be relaxed in the future for commissural connections
+        assert(length(strfind(seedROI, '_')) == 1);
+        assert(length(strfind(targROI, '_')) == 1);
+
+        items = splitstring(seedROI, '_');
+        seedHemi = items{1};
+        seedROI = items{2};
+        items = splitstring(targROI, '_');
+        targHemi = items{1};
+        targROI = items{2};
+
+        assert(isequal(seedHemi, targHemi)); % May be relaxed in the future for commissural connections
+    end
 end
 
 %% Check conditionally required input arguments
@@ -98,7 +113,7 @@ if isequal(args.anaType, 'FA') || isequal(args.anaType, 'MD')
     end
     
     if ~isfield(args, 'wmDepth')
-        error_log(sprintf('The option --wmDepth for analysis type %s is not supplied', args.anaType));
+        error_log(sprintf('The option --wm-depth for analysis type %s is not supplied', args.anaType));
     end
     
 end
@@ -117,12 +132,17 @@ projInfo = load(projInfoMat);
 %% Load data from dwi_analysis.py
 dat = []; % data
 grp = []; % Group info: it can hold things like study ID and group ID
+projs = {};     % Project names
+sids = {};      % Subject IDs
+
 
 if bNormByAll
     optNormByAll = '--norm-by-all';
 else
     optNormByAll = '';
 end
+
+prev_roiNames = {};
 
 for i1 = 1 : size(projInfo.name, 1)
     t_proj = deblank(projInfo.name(i1, :));
@@ -168,18 +188,33 @@ for i1 = 1 : size(projInfo.name, 1)
                 continue;
             end
             
-            t_dat = get_tensor_measure(tmfile, args.anaType, args.roi, args.wmDepth, ...
-                                       optNormByAll);
-            
-            if isnan(t_dat)
-                if args.bv
-                    info_log(sprintf('Skipping subject %s, due to NaN value in mat file: %s', ...
-                                     t_psid, tmfile), '--warn');
+            if ~isequal(args.roi, 'all')
+                t_dat = get_tensor_measure(tmfile, args.anaType, args.roi, args.wmDepth, ...
+                                           optNormByAll);
+            else
+                [t_dat, t_roiNames] = get_tensor_measure(tmfile, args.anaType, args.roi, args.wmDepth, ...
+                                                         optNormByAll);
+                if ~isempty(prev_roiNames)
+                    assert(isequal(t_roiNames, prev_roiNames));
                 end
-                continue;
+            end
+            
+            
+            if ~isequal(args.roi, 'all') 
+                if isnan(t_dat)
+                    if args.bv
+                        info_log(sprintf('Skipping subject %s, due to NaN value in mat file: %s', ...
+                                         t_psid, tmfile), '--warn');
+                    end
+                    
+                    continue;
+                end                
             end
                         
         elseif isequal(args.anaType, 'TNS')
+            if isequal(args.roi, 'lh_all') || isequal(args.roi, 'rh_all')
+                seedHemi = args.roi(1 : 2);
+            end
             connFile = fullfile(sDir, 'conn', ...
                                 sprintf('%s_gm_%s.speech.mat', DEFAULT_PARC, seedHemi));
             
@@ -191,20 +226,45 @@ for i1 = 1 : size(projInfo.name, 1)
                 continue;
             end
             
-            t_dat = get_tract_measure(connFile, args.anaType, ...
-                                      seedHemi, seedROI, targHemi, targROI);
+            if ~(isequal(args.roi, 'lh_all') ||     isequal(args.roi, 'rh_all'))
+                t_dat = get_tract_measure(connFile, args.anaType, ...
+                                          seedHemi, seedROI, targHemi, targROI);
+            else
+                [t_dat, t_roiNames] = get_tract_measure(connFile, args.anaType, ...
+                                                        seedHemi, 'all');
+                if ~isempty(prev_roiNames)
+                    assert(isequal(t_roiNames, prev_roiNames));
+                end
+            end
         else
             error_log(sprintf('Analaysis type %s has not been implemented yet', ...
                               args.anaType));
         end
         
-        dat(end + 1) = t_dat;
+        if isequal(args.roi, 'all') || isequal(args.roi, 'lh_all') || isequal(args.roi, 'rh_all')
+            if isvector(t_dat)
+                dat = [dat, t_dat];
+            else
+                dat = cat(3, dat, t_dat);
+            end
+            prev_roiNames = t_roiNames;
+        else
+            dat(end + 1) = t_dat;
+        end
+        
+        %--- Add project and subject ID info ---%
+        projs{end + 1} = t_proj;
+        sids{end + 1} = t_sid;
         
         %--- Add group identity info ---%
         if isequal(args.grpScheme, 'byStudy')
             grp(end + 1) = i1;
         elseif isequal(args.grpScheme, 'byGroup')
             grp(end + 1) = fsic(args.groups, t_grp_id);
+        elseif isequal(args.grpScheme, 'rep')            
+            grp(end + 1) = NaN;
+        elseif isequal(args.grpScheme, 'byAge')
+            grp(end + 1) = i1;
         else
             error_log('Unrecognized grouping scheme: %s', args.grpScheme);
         end
@@ -218,45 +278,280 @@ for i1 = 1 : size(projInfo.name, 1)
 
 end
 
+%% Get the master code of all subjects
+if args.bv
+    info_log(sprintf('Getting the master code of all (%d) subjects...', length(projs)));
+end
+
+masterCodes = get_subject_master_code(projs, sids, '--mat');
+if args.bv
+    info_log(sprintf('Done.'));
+end
+
+%% Get a list of all the repeats (only two in each row)
+if isequal(args.grpScheme, 'rep')
+    repTab = nan(0, 2);
+    repProjs = cell(0, 2);
+    u_masterCodes = unique(masterCodes(~isnan(masterCodes)));
+    for i1 = 1 : length(u_masterCodes)
+        idxs = find(masterCodes == u_masterCodes(i1));
+        if length(idxs) > 1
+            for i2 = 2 : length(idxs)
+                repTab = [repTab; [idxs(i2 - 1), idxs(i2)]];
+                repProjs = [repProjs; {projs{idxs(i2 - 1)}, projs{idxs(i2)}}];
+            end
+        end    
+    end
+    if args.bv
+        info_log(sprintf('Rep analysis: found %d pairs of repeated experiments on same subject', ...
+                         size(repTab, 1)));
+    end
+end
+    
+%% Age statistics
+if isequal(args.grpScheme, 'byAge')
+    ages = get_subject_demo_info('age', projs, sids, '--mat');
+end
+
+    
 %% Some data formatting
 
 %% Statistical analysis and visualization
-if isequal(args.grpScheme, 'byStudy')
+measName = strrep(sprintf('%s: %s', args.anaType, args.roi), '_', '\_');
+if isequal(args.grpScheme, 'byStudy') || isequal(args.grpScheme, 'byAge')
     ugrps = unique(grp);
 
     fhdl = figure('Name', sprintf('%s: %s', args.grpScheme, args.anaType), 'Color', 'w');
     set(gca, 'FontSize', fontSize);
     hold on; box on;
     
-    [aov1_p, aov1_table] = anova1(dat, grp, 'off');
-    for i1 = 1 : numel(ugrps)
-        t_grp = ugrps(i1);
-        idx = find(grp == t_grp);
-        
-        if length(idx) > 0
-            plot(idx, dat(idx), 'o-', 'Color', COLORS{i1});
-            text(idx(1) + 0.5, max(dat(idx)), ...
-                 deblank(projInfo.name(t_grp, :)), ...
-                 'FontSize', fontSize, 'Color', COLORS{i1});
+    if length(size(dat)) == 1 %--- Scalar measure from each subject ---%
+        [aov1_p, aov1_table] = anova1(dat, grp, 'off');
+        for i1 = 1 : numel(ugrps)
+            t_grp = ugrps(i1);
+            idx = find(grp == t_grp);
+
+            if length(idx) > 0
+                if isequal(args.grpScheme, 'byStudy')
+                    plot(idx, dat(idx), 'o-', 'Color', COLORS{i1});
+                    text(idx(1) + 0.5, max(dat(idx)), ...
+                         deblank(projInfo.name(t_grp, :)), ...
+                         'FontSize', fontSize, 'Color', COLORS{i1});
+                elseif isequal(args.grpScheme, 'byAge')
+                    plot(ages(idx), dat(idx), 'o', 'Color', COLORS{i1});
+                    text(ages(idx(1)), dat(idx(1)), ...
+                         deblank(projInfo.name(t_grp, :)), ...
+                         'FontSize', fontSize, 'Color', COLORS{i1});
+                end
+            end
         end
+
+        xs = get(gca, 'XLim');
+        ys = get(gca, 'YLim');
+        text(xs(1) + 0.05 * range(xs), ys(1) + 0.05 * range(ys), ...
+             sprintf('One-way ANOVA: F(%d,%d)=%f; p=%e', ...
+                          aov1_table{2, 3}, aov1_table{3, 3}, ...
+                          aov1_table{2, 5}, aov1_p), ...
+             'fontSize', fontSize);
+
+        if isequal(args.grpScheme, 'byStudy')
+            xlabel('Subject #');
+        else
+            xlabel('Age (y.o.)');
+        end
+
+        
+    elseif length(size(dat)) == 2 %-- Vector measure from each subject --%
+        t_legend = {};
+        for i1 = 1 : numel(ugrps)
+            t_grp = ugrps(i1);
+            idx = find(grp == t_grp);
+
+            if length(idx) > 0
+                mean_dat = nanmean(dat(:, idx), 2);
+                if isequal(args.grpScheme, 'byStudy')
+                    plot(1 : length(prev_roiNames), mean_dat, '-', 'Color', COLORS{i1});
+                    t_legend{end + 1} = deblank(projInfo.name(t_grp, :));
+                elseif isequal(args.grpScheme, 'byAge')
+                    error('grpScheme=byAge currently not supported under roi=all');
+                end
+            end
+        end
+        
+        xlabel('ROI');        
+    elseif length(size(dat)) == 3 %-- Matrix measure from each subject --%        
+        t_legend = {};
+        for i1 = 1 : numel(ugrps)
+            t_grp = ugrps(i1);
+            idx = find(grp == t_grp);
+
+            if length(idx) > 0
+                mean_mat = nanmean(dat(:, :, idx), 3);
+                
+                if isequal(args.anaType, 'TNS') && args.bNoSelf
+                    for k1 = 1 : size(mean_mat, 1)
+                        mean_mat(k1, k1) = NaN;
+                    end
+                end
+                
+                mean_dat = reshape(mean_mat, size(dat, 1) * size(dat, 2), 1);
+                mean_dat = mean_dat(~isnan(mean_dat));
+                
+                if isequal(args.grpScheme, 'byStudy')
+                    plot(1 : length(mean_dat), mean_dat, '-', 'Color', COLORS{i1});
+                    t_legend{end + 1} = deblank(projInfo.name(t_grp, :));
+                elseif isequal(args.grpScheme, 'byAge')
+                    error('grpScheme=byAge currently not supported under roi=all');
+                end
+            end
+        end
+        
+        set(gca, 'YScale', 'log');
+        
+        fpos = get(fhdl, 'Position');
+        fpos(3) = fpos(3) * 2;
+        set(fhdl, 'Position', fpos);
+        
+        xlabel('ROI-ROI pair');
     end
     
-    xs = get(gca, 'XLim');
-    ys = get(gca, 'YLim');
-    text(xs(1) + 0.05 * range(xs), ys(1) + 0.05 * range(ys), ...
-         sprintf('One-way ANOVA: F(%d,%d)=%f; p=%e', ...
-                      aov1_table{2, 3}, aov1_table{3, 3}, ...
-                      aov1_table{2, 5}, aov1_p), ...
-         'fontSize', fontSize);
-%     quickText(fhdl, ...
-%               sprintf('One-way ANOVA: F(%d,%d)=%f; p=%e', ...
-%                       aov1_table{2, 3}, aov1_table{3, 3}, ...
-%                       aov1_table{2, 5}, aov1_p), ...
-%               fontSize);
-    
-    xlabel('Subject #');
-   	ylabel(strrep(sprintf('%s: %s', args.anaType, args.roi), '_', '\_'));
-    
+    ylabel(measName);
+    if length(size(dat)) >= 2
+        legend(t_legend);
+        
+    end
+   
+elseif isequal(args.grpScheme, 'rep')
+    if length(size(dat)) == 2   % Single connection
+        dat_rx = dat(repTab(:, 1));
+        dat_ry = dat(repTab(:, 2));
+
+        figure;
+        hold on;
+        for i1 = 1 : length(dat_rx) 
+            plot(dat_rx(i1), dat_ry(i1), 'o');
+            text(dat_rx(i1), dat_ry(i1), ...
+                 sprintf('%s:%s', repProjs{i1, 1}, repProjs{i1, 2}), ...
+                 'Color', 'b', 'FontSize', 7);
+        end
+
+        xs = get(gca, 'XLim');
+        ys = get(gca, 'YLim');
+        lims = [min([xs(1), ys(1)]), max([xs(2), ys(2)])];
+        set(gca, 'XLim', lims, 'YLim', lims);
+        grid on;
+
+        xlabel(sprintf('%s (Session 1)', measName));
+        ylabel(sprintf('%s (Session 2)', measName));
+        axis square;
+    elseif length(size(dat)) == 3
+        for i1 = 1 : size(repTab, 1)
+            figure('Name', sprintf('SubjID: %s / %s', sids{repTab(i1, 1)}, sids{repTab(i1, 2)}), ...
+                   'Position', [100, 200, 900, 900], 'Color', [1, 1, 1]);
+            for i2 = 1 : 2
+                if i2 == 1
+                    dat_rx = dat(:, :, repTab(i1, 1));
+                    dat_ry = dat(:, :, repTab(i1, 2));
+                    clr = 'b';
+                    
+                    mats{1} = dat_rx;
+                    mats{2} = dat_ry;
+                    
+                else
+                    dat_rx = dat(:, :, repTab(i1, 1));
+                    idxOther = setxor(1 : size(dat, 3), repTab(i1, 1));
+                    idxOther = setxor(idxOther, repTab(i1, 2));
+                                        
+                    if args.bRandOther
+                        rpOthers = randperm(length(idxOther));
+                        sidComp = sids{idxOther(rpOthers(1))};
+                        dat_ry = mean(dat(:, :, idxOther(rpOthers(1))), 3);
+                    else
+                        dat_ry = mean(dat(:, :, idxOther), 3);
+                    end
+                    
+                    clr = 'r';                    
+                    mats{3} = dat_ry;
+                end
+            
+                dat_rx = dat_rx(:);
+                dat_ry = dat_ry(:);
+            
+                subplot(2, 2, i2);
+                hold on;
+                plot(dat_rx, dat_ry, 'o', 'Color', clr);
+                
+                set(gca, 'XScale', 'log', 'YScale', 'log');
+                axis square;
+
+                xs = get(gca, 'XLim');
+                ys = get(gca, 'YLim');
+                lims = [min([xs(1), ys(1)]), max([xs(2), ys(2)])];
+                if lims(1) == 0
+                    lims(1) = lims(2) / 1e2;
+                end
+                set(gca, 'XLim', lims, 'YLim', lims);
+                grid on;
+                plot(lims, lims, '-', 'Color', [0.5, 0.5, 0.5]);
+
+                xlabel(sprintf('%s from Session 1: %s (%s)', strrep(args.anaType, '_', '\_'), ...
+                       strrep(sids{repTab(i1, 1)}, '_', '\_'), projs{repTab(i1, 1)}));
+                if i2 == 1
+                    ylabel(sprintf('%s from Session 2: %s (%s)', strrep(args.anaType, '_', '\_'), ...
+                           strrep(sids{repTab(i1, 2)}, '_', '\_'), projs{repTab(i1, 2)}));
+                    titl = 'Session 2 vs. session 1';
+                else
+                    if args.bRandOther
+                        ylabel(sprintf('Session from another subject: %s', sidComp));
+                        titl = sprintf('Another subject (%s) vs. session 1', sidComp);
+                    else
+                        ylabel(sprintf('%s from average of %d other subjects', ...
+                               strrep(args.anaType, '_', '\_'), length(idxOther)));
+                        titl = 'Other-average vs. session 1';
+                    end
+                end
+                
+                %-- calculate correlation coeffieicents and differences --%
+                dat_rx(dat_rx == 0) = MIN_TNS;
+                dat_ry(dat_ry == 0) = MIN_TNS;
+                
+                [rho_spear, t_spear, p_spear] = spear(log(dat_rx), log(dat_ry));
+                text(xs(1) + 1e-8 * range(xs), ys(2) - 0.06 * range(ys), ...
+                     sprintf('rho = %f, p = %e', rho_spear, p_spear));
+                title(titl);
+                
+                [k_lin, r2_lin, p_lin] = lincorr(log(dat_rx), log(dat_ry));
+                text(xs(1) + 1e-8 * range(xs), ys(2) - 0.5 * range(ys), ...
+                     sprintf('r^2 = %f, p = %e', r2_lin, p_lin));
+                 
+                mean_diff = mean(abs(log(dat_rx) - log(dat_ry)));
+                sd_diff = std(abs(log(dat_rx) - log(dat_ry)));
+                text(xs(1) + 1e-8 * range(xs), ys(2) - 0.9 * range(ys), ...
+                     sprintf('Mean diff. = %f; SD diff. = %f', mean_diff, sd_diff));
+            end
+            
+            for i2 = 1 : 3
+                subplot('Position', [0.05 + (i2 - 1) * 0.3, 0.15, 0.28, 0.325]);
+                imagesc(mats{i2});
+                
+                if i2 == 1
+                    title(sprintf('Data from Session 1: %s (%s)', ...
+                          strrep(sids{repTab(i1, 1)}, '_', '\_'), projs{repTab(i1, 1)}));
+                elseif i2 == 2
+                    title(sprintf('Data from Session 2: %s (%s)', ...
+                          strrep(sids{repTab(i1, 2)}, '_', '\_'), projs{repTab(i1, 2)}));
+                else
+                    if args.bRandOther
+                        title(sprintf('Data from another subject: %s', sidComp));                       
+                    else
+                        title(sprintf('Average from average of %d subjects', length(sids)));                        
+                    end
+                end
+            end
+        end
+        
+        
+    end
 end
 
 return

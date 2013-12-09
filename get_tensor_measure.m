@@ -1,4 +1,4 @@
-function dat = get_tensor_measure(tmFile, meas, roi, wmDepth, varargin)
+function [dat, varargout] = get_tensor_measure(tmFile, meas, roi, wmDepth, varargin)
 %%
 % roi == all: get the arithmetic mean of all regions in the mat file
 % Option --norm-by-all: normize the value by the mean of all regions
@@ -17,7 +17,7 @@ if length(jd) ~= 1
 end
 
 %% Locate ROI
-if ~isequal(roi, 'all')
+if ~(isequal(roi, 'allAvg') || isequal(roi, 'all'))
     bROIFound = 0;
     for i1 = 1 : size(tmdat.roiNames, 1)
         t_roi = deblank(tmdat.roiNames(i1, :));
@@ -37,7 +37,10 @@ end
     
 %%
 meanAll = mean(tmdat.tensMeas.(meas)(:, jd));
-if ~isequal(roi, 'all')
+if isequal(roi, 'all')
+    dat = tmdat.tensMeas.(meas)(:, jd);
+    varargout{1} = tmdat.roiNames;
+elseif ~isequal(roi, 'allAvg')
     dat = tmdat.tensMeas.(meas)(jr, jd);
     if bNormByAll
         dat = dat / meanAll;
