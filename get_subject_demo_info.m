@@ -116,14 +116,14 @@ else
             end
             
             if length(idx) == 0
-                info_log(sprintf('Cannot find the %s info for subject proj == %d; sid = %s', ...
+                info_log(sprintf('Cannot find the %s info for subject proj == %s; sid = %s', ...
                                  infoType, t_studyID, t_subjID), '-warn');
                 continue;
             end
 
             if length(idx) > 1
-                info_log(sprintf('More than one entries found for subject proj == %d; sid = %s. Will use the first entry', ...
-                                 infoType, t_studyID, t_subjID), '-warn');
+                info_log(sprintf('More than one entries found for subject proj == %s; sid = %s. Will use the first entry', ...
+                                 t_studyID, t_subjID), '-warn');
                 idx = idx(1);
             end
 

@@ -70,7 +70,8 @@ projInfo = {"name": ["CAT",
                          "SEQ03009", "SEQ03010", "SEQ03011", "SEQ03012", "SEQ03013",
                          "SEQ03015", "SEQ03018"],
                         ["FMRC002_092013", "FMRC003_100413", "FMRP004_101813",
-                         "FMRP005_103013", "FMRP006_110113"]], \
+                         "FMRP005_103013", "FMRP006_110113", "FMRC007_111513",
+                         "FMRP008_112913"]], \
             "groupIDs": [["nrm"] * 17,
                         ["pds", "nrm", "nrm", "pds", "nrm", 
                          "pds", "pds", "pds", "pds", "pds", 
@@ -96,7 +97,8 @@ projInfo = {"name": ["CAT",
                         ["nrm"] * 5,
                         ["nrm"] * 11,
                         ["nrm", "nrm", "sdp",
-                         "nrm", "sdp"]], \
+                         "nrm", "sdp", "nrm",
+                         "sdp"]], \
             "fsSubjectsDir": ["/speechlab/subjects/pool", 
                               "/speechlab/subjects/pool", 
                               "/speechlab/subjects/pool", 
@@ -136,7 +138,9 @@ projInfo = {"name": ["CAT",
                           ["SEQ_FS01", "SEQ_FS03", "SEQ_FS04", "SEQ_FS05",
                            "SEQ_FS06", "SEQ_FS07", "SEQ_FS08", "SEQ_FS09", "SEQ_FS10",
                            "SEQ_FS11", "SEQ_FS12"],
-                          ["SDAP.02", "SDAP.03", "SDAP.04", "SDAP.05", "SDAP.06"]], \
+                          ["SDAP.02", "SDAP.03", "SDAP.04",
+                           "SDAP.05", "SDAP.06", "SDAP.07",
+                           "SDAP.08"]], \
             "rawFormat": ["DICOM",
                           "ngz",
                           "DICOM",
@@ -181,7 +185,7 @@ projInfo = {"name": ["CAT",
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 8,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 5,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 11,
-                       [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 5]}
+                       [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 7]}
 
 if __name__ == "__main__":
     matFN = "dwi_project_info.mat"

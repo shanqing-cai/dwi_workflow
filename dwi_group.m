@@ -39,6 +39,8 @@ MIN_TNS = 1e-6;
 %--- Visualization settings ---%
 fontSize = 15;
 
+FA_LIMS = [0.1, 0.6];
+
 %% Visualization options
 COLORS = {[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0.5, 1], ...
           [0.5, 0.25, 0], [0.5, 0, 1], [0.5, 0.5, 0], [0, 1, 1], ...
@@ -328,27 +330,74 @@ end
 if isequal(args.grpScheme, 'byStudy') || isequal(args.grpScheme, 'byAge')
     ugrps = unique(grp);
 
-    fhdl = figure('Name', sprintf('%s: %s', args.grpScheme, args.anaType), 'Color', 'w');
-    set(gca, 'FontSize', fontSize);
-    hold on; box on;
+    if isequal(args.grpScheme, 'byAge')
+        fhdl = figure('Name', sprintf('%s: %s', args.grpScheme, args.anaType), 'Color', 'w', ...
+                      'Position', [100, 200, 1200, 500]);
+    else
+        fhdl = figure('Name', sprintf('%s: %s', args.grpScheme, args.anaType), 'Color', 'w');  
+        set(gca, 'FontSize', fontSize);
+        hold on; box on;
+    end
+
+    
+    if isequal(args.grpScheme, 'byAge')
+        spN = 2;
+        spM = ceil(numel(ugrps) / 2);
+    end
     
     if length(size(dat)) == 2 && isvector(dat) %--- Scalar measure from each subject ---%
         [aov1_p, aov1_table] = anova1(dat, grp, 'off');
+        
         for i1 = 1 : numel(ugrps)
+            if isequal(args.grpScheme, 'byAge')
+                subplot(spN, spM, i1);
+                set(gca, 'FontSize', fontSize);
+                hold on; box on;
+            end
+            
             t_grp = ugrps(i1);
             idx = find(grp == t_grp);
+            
+            if isequal(args.grpScheme, 'byStudy')
+                plot(idx, dat(idx), 'o-', 'Color', COLORS{i1});
+            else
+                plot(ages(idx), dat(idx), 'o', 'Color', COLORS{i1});
+            end
 
-            if length(idx) > 0
-                if isequal(args.grpScheme, 'byStudy')
-                    plot(idx, dat(idx), 'o-', 'Color', COLORS{i1});
-                    text(idx(1) + 0.5, max(dat(idx)), ...
-                         deblank(projInfo.name(t_grp, :)), ...
-                         'FontSize', fontSize, 'Color', COLORS{i1});
-                elseif isequal(args.grpScheme, 'byAge')
-                    plot(ages(idx), dat(idx), 'o', 'Color', COLORS{i1});
-                    text(ages(idx(1)), dat(idx(1)), ...
-                         deblank(projInfo.name(t_grp, :)), ...
-                         'FontSize', fontSize, 'Color', COLORS{i1});
+            if isequal(args.grpScheme, 'byAge')
+                if  isequal(args.anaType, 'FA')
+                    set(gca ,'YLim', FA_LIMS);
+                end
+                title(sprintf('%s: %s', deblank(projInfo.name(t_grp, :)), args.anaType));
+                
+                %--- Peform linear correlation ---%
+                [k_lin, r2_lin, p_lin] = lincorr(ages(idx), dat(idx));
+                xs = get(gca, 'XLim');
+                ys = get(gca, 'YLim');
+                plot(xs, k_lin(1) + k_lin(2) * xs, '--', 'Color', COLORS{i1});
+
+                r_lin = ((k_lin(2) > 0) * 2 - 1) * sqrt(r2_lin);
+                
+                text(xs(1) + 0.05 * range(xs), ys(2) - 0.06 * range(ys), ...
+                     sprintf('Lincorr: R=%.3f, p=%.3f', r_lin, p_lin), ...
+                     'FontSize', fontSize);
+                 
+                %--- Spearman's correlation ---%
+                [rho_sp, t_sp, p_sp] = spear(ages(idx).', dat(idx).');
+                text(xs(1) + 0.05 * range(xs), ys(2) - 0.14 * range(ys), ...
+                     sprintf('Spearman: rho=%.3f, p=%.3f', rho_sp, p_sp), ...
+                     'FontSize', fontSize);
+            else
+                if length(idx) > 0
+                    if isequal(args.grpScheme, 'byStudy')
+                        text(idx(1) + 0.5, max(dat(idx)), ...
+                             deblank(projInfo.name(t_grp, :)), ...
+                             'FontSize', fontSize, 'Color', COLORS{i1});
+                    elseif isequal(args.grpScheme, 'byAge')
+                        text(ages(idx(1)), dat(idx(1)), ...
+                             deblank(projInfo.name(t_grp, :)), ...
+                             'FontSize', fontSize, 'Color', COLORS{i1});
+                    end
                 end
             end
         end
@@ -423,9 +472,9 @@ if isequal(args.grpScheme, 'byStudy') || isequal(args.grpScheme, 'byAge')
     end
     
     ylabel(measName);
-    if length(size(dat)) >= 2
-        legend(t_legend);
-        
+    
+    if length(size(dat)) >= 2 && ~isvector(dat)
+        legend(t_legend);        
     end
    
 elseif isequal(args.grpScheme, 'rep')

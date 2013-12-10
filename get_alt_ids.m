@@ -2,6 +2,11 @@ function altIDs = get_alt_ids(t_studyID, t_subjID)
 %% Config: project name translation table
 pnTable = {{'innerspeech', 'InSp'}};
 
+SL_DEMO_MAT_FN = '/speechlab/2/jtour/SID/SL_demos.mat';
+USE_MAT_STUDY_CODE_PROJS = {'SDAP'};
+STUDY_CODE_COL = 2;
+DATA_DIR_NAME_COL = 3;
+
 %%
 altIDs = cell(1, 2);
 altIDs{1} = [t_studyID, t_subjID];
@@ -45,6 +50,25 @@ if length(t_subjID) > 4 && isequal(t_subjID(1 : 3), 'SEQ') && ...
     altIDs{end + 1} = t_subjID;
 else
     bSEQ = 0;
+end
+
+if ~isempty(fsic(USE_MAT_STUDY_CODE_PROJS, t_studyID))
+    load(SL_DEMO_MAT_FN);
+    assert(exist('N', 'var') == 1);
+    assert(exist('T', 'var') == 1);
+    
+    bFound = 0;
+    for i1 = 1 : size(T, 1)
+        if ~isempty(fsic(altIDs, T{i1, DATA_DIR_NAME_COL}))
+            bFound = 1;
+            break;
+        end
+    end
+    
+    if bFound
+        altIDs{end + 1} = T{i1, STUDY_CODE_COL};
+        altIDs{end + 1} = [t_studyID, '_', T{i1, STUDY_CODE_COL}];
+    end
 end
 
 %--- Find alternative project names from the pnTable ---% 

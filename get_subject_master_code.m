@@ -63,6 +63,8 @@ for i1 = 1 : length(studyIDs)
     
     bFound = 0;
     
+    altIDs = get_alt_ids(t_studyID, t_subjID);
+    
     r = row1;
     while (r < size(T, 1))
         xlsID = T{r, 3};
@@ -72,7 +74,7 @@ for i1 = 1 : length(studyIDs)
 %         end
 
         %--- Build all alternative IDs ---%
-        altIDs = get_alt_ids(t_studyID, t_subjID);
+
         
         if ~isempty(fsic(altIDs, xlsID))
             bFound = 1;
