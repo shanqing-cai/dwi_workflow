@@ -36,6 +36,9 @@ DEFAULT_PARC = 'aparc12';
 %% Other constants
 MIN_TNS = 1e-6;
 
+%--- Visualization settings ---%
+fontSize = 15;
+
 %% Visualization options
 COLORS = {[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0.5, 1], ...
           [0.5, 0.25, 0], [0.5, 0, 1], [0.5, 0.5, 0], [0, 1, 1], ...
@@ -69,7 +72,7 @@ else
     args.exclS = {};
 end
 
-bNormByAll = ~isempty(fsic(varargin, '--norm-by-all'));
+args.bNormByAll = ~isempty(fsic(varargin, '--norm-by-all'));
 args.bNoSelf = ~isempty(fsic(varargin, '--no-self'));
 
 args.bRandOther = ~isempty(fsic(varargin, '--rand-other'));
@@ -136,7 +139,7 @@ projs = {};     % Project names
 sids = {};      % Subject IDs
 
 
-if bNormByAll
+if args.bNormByAll
     optNormByAll = '--norm-by-all';
 else
     optNormByAll = '';
@@ -318,6 +321,10 @@ end
 
 %% Statistical analysis and visualization
 measName = strrep(sprintf('%s: %s', args.anaType, args.roi), '_', '\_');
+if args.bNormByAll
+    measName = [measName, ' (norm. by allAvg)'];
+end
+
 if isequal(args.grpScheme, 'byStudy') || isequal(args.grpScheme, 'byAge')
     ugrps = unique(grp);
 
@@ -325,7 +332,7 @@ if isequal(args.grpScheme, 'byStudy') || isequal(args.grpScheme, 'byAge')
     set(gca, 'FontSize', fontSize);
     hold on; box on;
     
-    if length(size(dat)) == 1 %--- Scalar measure from each subject ---%
+    if length(size(dat)) == 2 && isvector(dat) %--- Scalar measure from each subject ---%
         [aov1_p, aov1_table] = anova1(dat, grp, 'off');
         for i1 = 1 : numel(ugrps)
             t_grp = ugrps(i1);
@@ -422,135 +429,202 @@ if isequal(args.grpScheme, 'byStudy') || isequal(args.grpScheme, 'byAge')
     end
    
 elseif isequal(args.grpScheme, 'rep')
-    if length(size(dat)) == 2   % Single connection
-        dat_rx = dat(repTab(:, 1));
-        dat_ry = dat(repTab(:, 2));
-
-        figure;
-        hold on;
-        for i1 = 1 : length(dat_rx) 
-            plot(dat_rx(i1), dat_ry(i1), 'o');
-            text(dat_rx(i1), dat_ry(i1), ...
-                 sprintf('%s:%s', repProjs{i1, 1}, repProjs{i1, 2}), ...
-                 'Color', 'b', 'FontSize', 7);
-        end
-
-        xs = get(gca, 'XLim');
-        ys = get(gca, 'YLim');
-        lims = [min([xs(1), ys(1)]), max([xs(2), ys(2)])];
-        set(gca, 'XLim', lims, 'YLim', lims);
-        grid on;
-
-        xlabel(sprintf('%s (Session 1)', measName));
-        ylabel(sprintf('%s (Session 2)', measName));
-        axis square;
-    elseif length(size(dat)) == 3
-        for i1 = 1 : size(repTab, 1)
-            figure('Name', sprintf('SubjID: %s / %s', sids{repTab(i1, 1)}, sids{repTab(i1, 2)}), ...
-                   'Position', [100, 200, 900, 900], 'Color', [1, 1, 1]);
-            for i2 = 1 : 2
-                if i2 == 1
-                    dat_rx = dat(:, :, repTab(i1, 1));
-                    dat_ry = dat(:, :, repTab(i1, 2));
-                    clr = 'b';
-                    
-                    mats{1} = dat_rx;
-                    mats{2} = dat_ry;
-                    
-                else
-                    dat_rx = dat(:, :, repTab(i1, 1));
-                    idxOther = setxor(1 : size(dat, 3), repTab(i1, 1));
-                    idxOther = setxor(idxOther, repTab(i1, 2));
-                                        
-                    if args.bRandOther
-                        rpOthers = randperm(length(idxOther));
-                        sidComp = sids{idxOther(rpOthers(1))};
-                        dat_ry = mean(dat(:, :, idxOther(rpOthers(1))), 3);
-                    else
-                        dat_ry = mean(dat(:, :, idxOther), 3);
-                    end
-                    
-                    clr = 'r';                    
-                    mats{3} = dat_ry;
-                end
+    if isequal(args.anaType, 'FA') || isequal(args.anaType, 'MD')
+        if isvector(dat) % Single ROI
             
-                dat_rx = dat_rx(:);
-                dat_ry = dat_ry(:);
+        else % A set of ROIs;
+            figure('Position', [100, 200, 1400, 500], 'Color', 'w');
+            spN = 2;
+            spM = ceil(size(repTab, 1) / 2);
             
-                subplot(2, 2, i2);
-                hold on;
-                plot(dat_rx, dat_ry, 'o', 'Color', clr);
+            rhos_self = nan(size(repTab, 1), 1);
+            rhos_so = nan(size(repTab, 1), 1);
+            r2s_self = nan(size(repTab, 1), 1);
+            r2s_so = nan(size(repTab, 1), 1);
+            for i1 = 1 : size(repTab, 1)
+                idxOther = setxor(1 : size(dat, 2), repTab(i1, :));
                 
-                set(gca, 'XScale', 'log', 'YScale', 'log');
-                axis square;
-
+                dat_rx = dat(:, repTab(i1, 1));
+                dat_ry = dat(:, repTab(i1, 2));
+                dat_ro = nanmean(dat(:, idxOther), 2);
+                
+                subplot(spN, spM, i1);
+                hold on;
+                plot(dat_rx, dat_ry, 'bo');
+                plot(dat_rx, dat_ro, 'ro');
+                
                 xs = get(gca, 'XLim');
                 ys = get(gca, 'YLim');
                 lims = [min([xs(1), ys(1)]), max([xs(2), ys(2)])];
-                if lims(1) == 0
-                    lims(1) = lims(2) / 1e2;
-                end
+                plot(lims, lims, '-', 'Color', [0.5, 0.5, 0.5]);
                 set(gca, 'XLim', lims, 'YLim', lims);
                 grid on;
-                plot(lims, lims, '-', 'Color', [0.5, 0.5, 0.5]);
-
-                xlabel(sprintf('%s from Session 1: %s (%s)', strrep(args.anaType, '_', '\_'), ...
-                       strrep(sids{repTab(i1, 1)}, '_', '\_'), projs{repTab(i1, 1)}));
-                if i2 == 1
-                    ylabel(sprintf('%s from Session 2: %s (%s)', strrep(args.anaType, '_', '\_'), ...
-                           strrep(sids{repTab(i1, 2)}, '_', '\_'), projs{repTab(i1, 2)}));
-                    titl = 'Session 2 vs. session 1';
-                else
-                    if args.bRandOther
-                        ylabel(sprintf('Session from another subject: %s', sidComp));
-                        titl = sprintf('Another subject (%s) vs. session 1', sidComp);
-                    else
-                        ylabel(sprintf('%s from average of %d other subjects', ...
-                               strrep(args.anaType, '_', '\_'), length(idxOther)));
-                        titl = 'Other-average vs. session 1';
-                    end
-                end
                 
-                %-- calculate correlation coeffieicents and differences --%
-                dat_rx(dat_rx == 0) = MIN_TNS;
-                dat_ry(dat_ry == 0) = MIN_TNS;
+                [rho_self, t_self, p_sp_self] = spear(dat_rx, dat_ry);
+                [rho_so, t_so, p_sp_so] = spear(dat_rx, dat_ro);
                 
-                [rho_spear, t_spear, p_spear] = spear(log(dat_rx), log(dat_ry));
-                text(xs(1) + 1e-8 * range(xs), ys(2) - 0.06 * range(ys), ...
-                     sprintf('rho = %f, p = %e', rho_spear, p_spear));
-                title(titl);
+                [k_self, r2_self, p_lin_self] = lincorr(dat_rx, dat_ry);
+                [k_so, r2_so, p_lin_so] = lincorr(dat_rx, dat_ro);
                 
-                [k_lin, r2_lin, p_lin] = lincorr(log(dat_rx), log(dat_ry));
-                text(xs(1) + 1e-8 * range(xs), ys(2) - 0.5 * range(ys), ...
-                     sprintf('r^2 = %f, p = %e', r2_lin, p_lin));
+                rhos_self(i1) = rho_self;
+                rhos_so(i1) = rho_so;
+                r2s_self(i1) = r2_self;
+                r2s_so(i1) = r2_so;
+                
+                text(xs(1) + 0.01 * range(xs), ys(2) - 0.06 * range(ys), ...
+                     sprintf('Self-self: rho=%.3f, R^2=%.3f', rho_self, r2_self), ...
+                     'Color', 'b');
+                text(xs(1) + 0.01 * range(xs), ys(2) - 0.12 * range(ys), ...
+                     sprintf('Self-other: rho=%.3f, R^2=%.3f', rho_so, r2_so), ...
+                     'Color', 'r');
                  
-                mean_diff = mean(abs(log(dat_rx) - log(dat_ry)));
-                sd_diff = std(abs(log(dat_rx) - log(dat_ry)));
-                text(xs(1) + 1e-8 * range(xs), ys(2) - 0.9 * range(ys), ...
-                     sprintf('Mean diff. = %f; SD diff. = %f', mean_diff, sd_diff));
-            end
-            
-            for i2 = 1 : 3
-                subplot('Position', [0.05 + (i2 - 1) * 0.3, 0.15, 0.28, 0.325]);
-                imagesc(mats{i2});
-                
-                if i2 == 1
-                    title(sprintf('Data from Session 1: %s (%s)', ...
-                          strrep(sids{repTab(i1, 1)}, '_', '\_'), projs{repTab(i1, 1)}));
-                elseif i2 == 2
-                    title(sprintf('Data from Session 2: %s (%s)', ...
-                          strrep(sids{repTab(i1, 2)}, '_', '\_'), projs{repTab(i1, 2)}));
-                else
-                    if args.bRandOther
-                        title(sprintf('Data from another subject: %s', sidComp));                       
-                    else
-                        title(sprintf('Average from average of %d subjects', length(sids)));                        
-                    end
-                end
+                xlabel(sprintf('measName from Session 1 (%s)', projs{repTab(i1, 1)}));
+                ylabel(sprintf('measName from Session 2 (%s)', projs{repTab(i1, 2)}));
             end
         end
         
+        figure('Color', 'w'); 
+        set(gca, 'FontSize', fontSize)
+        hold on;
+        plot(r2s_self, r2s_so, 'ko');
+        lims = [0, 1];
+        set(gca, 'XLim', lims, 'YLim', lims);
+        grid on;
+        plot(lims, lims, '-', 'Color', [0.5, 0.5, 0.5]);
+        xlabel('R^2 of self-self correlation');
+        ylabel('R^2 of self-other correlation');       
         
+    elseif isequal(args.anaType, 'TNS')
+    
+        if length(size(dat)) == 2   % Single connection
+            dat_rx = dat(repTab(:, 1));
+            dat_ry = dat(repTab(:, 2));
+
+            figure;
+            hold on;
+            for i1 = 1 : length(dat_rx) 
+                plot(dat_rx(i1), dat_ry(i1), 'o');
+                text(dat_rx(i1), dat_ry(i1), ...
+                     sprintf('%s:%s', repProjs{i1, 1}, repProjs{i1, 2}), ...
+                     'Color', 'b', 'FontSize', 7);
+            end
+
+            xs = get(gca, 'XLim');
+            ys = get(gca, 'YLim');
+            lims = [min([xs(1), ys(1)]), max([xs(2), ys(2)])];
+            set(gca, 'XLim', lims, 'YLim', lims);
+            grid on;
+
+            xlabel(sprintf('%s (Session 1)', measName));
+            ylabel(sprintf('%s (Session 2)', measName));
+            axis square;
+        elseif length(size(dat)) == 3
+            for i1 = 1 : size(repTab, 1)
+                figure('Name', sprintf('SubjID: %s / %s', sids{repTab(i1, 1)}, sids{repTab(i1, 2)}), ...
+                       'Position', [100, 200, 900, 900], 'Color', [1, 1, 1]);
+                for i2 = 1 : 2
+                    if i2 == 1
+                        dat_rx = dat(:, :, repTab(i1, 1));
+                        dat_ry = dat(:, :, repTab(i1, 2));
+                        clr = 'b';
+
+                        mats{1} = dat_rx;
+                        mats{2} = dat_ry;
+
+                    else
+                        dat_rx = dat(:, :, repTab(i1, 1));
+                        idxOther = setxor(1 : size(dat, 3), repTab(i1, 1));
+                        idxOther = setxor(idxOther, repTab(i1, 2));
+
+                        if args.bRandOther
+                            rpOthers = randperm(length(idxOther));
+                            sidComp = sids{idxOther(rpOthers(1))};
+                            dat_ry = mean(dat(:, :, idxOther(rpOthers(1))), 3);
+                        else
+                            dat_ry = mean(dat(:, :, idxOther), 3);
+                        end
+
+                        clr = 'r';                    
+                        mats{3} = dat_ry;
+                    end
+
+                    dat_rx = dat_rx(:);
+                    dat_ry = dat_ry(:);
+
+                    subplot(2, 2, i2);
+                    hold on;
+                    plot(dat_rx, dat_ry, 'o', 'Color', clr);
+
+                    set(gca, 'XScale', 'log', 'YScale', 'log');
+                    axis square;
+
+                    xs = get(gca, 'XLim');
+                    ys = get(gca, 'YLim');
+                    lims = [min([xs(1), ys(1)]), max([xs(2), ys(2)])];
+                    if lims(1) == 0
+                        lims(1) = lims(2) / 1e2;
+                    end
+                    set(gca, 'XLim', lims, 'YLim', lims);
+                    grid on;
+                    plot(lims, lims, '-', 'Color', [0.5, 0.5, 0.5]);
+
+                    xlabel(sprintf('%s from Session 1: %s (%s)', strrep(args.anaType, '_', '\_'), ...
+                           strrep(sids{repTab(i1, 1)}, '_', '\_'), projs{repTab(i1, 1)}));
+                    if i2 == 1
+                        ylabel(sprintf('%s from Session 2: %s (%s)', strrep(args.anaType, '_', '\_'), ...
+                               strrep(sids{repTab(i1, 2)}, '_', '\_'), projs{repTab(i1, 2)}));
+                        titl = 'Session 2 vs. session 1';
+                    else
+                        if args.bRandOther
+                            ylabel(sprintf('Session from another subject: %s', sidComp));
+                            titl = sprintf('Another subject (%s) vs. session 1', sidComp);
+                        else
+                            ylabel(sprintf('%s from average of %d other subjects', ...
+                                   strrep(args.anaType, '_', '\_'), length(idxOther)));
+                            titl = 'Other-average vs. session 1';
+                        end
+                    end
+
+                    %-- calculate correlation coeffieicents and differences --%
+                    dat_rx(dat_rx == 0) = MIN_TNS;
+                    dat_ry(dat_ry == 0) = MIN_TNS;
+
+                    [rho_spear, t_spear, p_spear] = spear(log(dat_rx), log(dat_ry));
+                    text(xs(1) + 1e-8 * range(xs), ys(2) - 0.06 * range(ys), ...
+                         sprintf('rho = %f, p = %e', rho_spear, p_spear));
+                    title(titl);
+
+                    [k_lin, r2_lin, p_lin] = lincorr(log(dat_rx), log(dat_ry));
+                    text(xs(1) + 1e-8 * range(xs), ys(2) - 0.5 * range(ys), ...
+                         sprintf('r^2 = %f, p = %e', r2_lin, p_lin));
+
+                    mean_diff = mean(abs(log(dat_rx) - log(dat_ry)));
+                    sd_diff = std(abs(log(dat_rx) - log(dat_ry)));
+                    text(xs(1) + 1e-8 * range(xs), ys(2) - 0.9 * range(ys), ...
+                         sprintf('Mean diff. = %f; SD diff. = %f', mean_diff, sd_diff));
+                end
+
+                for i2 = 1 : 3
+                    subplot('Position', [0.05 + (i2 - 1) * 0.3, 0.15, 0.28, 0.325]);
+                    imagesc(mats{i2});
+
+                    if i2 == 1
+                        title(sprintf('Data from Session 1: %s (%s)', ...
+                              strrep(sids{repTab(i1, 1)}, '_', '\_'), projs{repTab(i1, 1)}));
+                    elseif i2 == 2
+                        title(sprintf('Data from Session 2: %s (%s)', ...
+                              strrep(sids{repTab(i1, 2)}, '_', '\_'), projs{repTab(i1, 2)}));
+                    else
+                        if args.bRandOther
+                            title(sprintf('Data from another subject: %s', sidComp));                       
+                        else
+                            title(sprintf('Average from average of %d subjects', length(sids)));                        
+                        end
+                    end
+                end
+            end
+        
+        end
     end
 end
 

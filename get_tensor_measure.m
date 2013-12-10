@@ -36,10 +36,14 @@ if ~(isequal(roi, 'allAvg') || isequal(roi, 'all'))
 end
     
 %%
-meanAll = mean(tmdat.tensMeas.(meas)(:, jd));
+meanAll = nanmean(tmdat.tensMeas.(meas)(:, jd));
 if isequal(roi, 'all')
     dat = tmdat.tensMeas.(meas)(:, jd);
     varargout{1} = tmdat.roiNames;
+    
+    if bNormByAll
+        dat = dat / meanAll;
+    end
 elseif ~isequal(roi, 'allAvg')
     dat = tmdat.tensMeas.(meas)(jr, jd);
     if bNormByAll
