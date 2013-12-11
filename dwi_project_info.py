@@ -105,7 +105,7 @@ projInfo = {"name": ["CAT",
                               "/speechlab/home/dsbeal/SEQPDS_analysis/fsdata", 
                               "/speechlab/subjects/pool", 
                               "/speechlab/2/jsegawa/FRS03_fixed1st/subjects", 
-                              "/speechlab/4/disk2/jsegawa/CCRS/subjects", 
+                              "/speechlab/4/disk2/jsegawa/CCRS03/subjects", 
                               "/speechlab/2/jsegawa/SEQ03/nipype_test/subjects_nipype",
                               "/speechlab/subjects/pool"], \
             "fsSubjIDs": [["CAT_12", "CAT_13", "CAT_14", "CAT_15", "CAT_20", "CAT_21", "CAT_22", "CAT_24",
