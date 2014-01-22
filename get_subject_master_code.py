@@ -24,7 +24,7 @@ if __name__ == "__main__":
     subjIDs = args.subjIDs.split(",")
 
     if len(studyIDs) != len(subjIDs):
-        raise Exception, "Unequal number of entries in subjIDs and subjIDs"
+        raise Exception, "Unequal number of entries in studyIDs and subjIDs"
 
     if args.bVerbose:
         info_log("# of subjects queried = %d" % len(subjIDs))
@@ -48,15 +48,6 @@ if __name__ == "__main__":
         info_log("\tSQL_SERVER = %s" % SQL_SERVER)
         info_log("\tDATABASE_NAME = %s" % DATABASE_NAME)
         info_log("\tSQL_USER = %s" % SQL_USER)
-
-
-    """
-    passwdFN = os.path.join(os.getenv("HOME"), PASSWD_FN)
-    check_file(passwdFN)
-    pwf = open(passwdFN, "rt")
-    pw = pwf.read()
-    pwf.close()
-    """
 
     db = MySQLdb.connect(host=SQL_SERVER, db=DATABASE_NAME,
                          user=SQL_USER, passwd=pw)
@@ -94,6 +85,9 @@ if __name__ == "__main__":
                     bFound = True
                     foundRow = t_row
                     break
+
+            if bFound:
+                break
         
         if not bFound:
             masterCodes.append(-1)
