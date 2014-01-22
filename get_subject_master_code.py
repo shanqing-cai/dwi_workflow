@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 
-SQL_SERVER = "two.bu.edu"
-DATABASE_NAME = "MEGA"
-SQL_USER = "scai"
-PASSWD_FN = "passwd"
-
-
+SQL_SETTINGS_FN = "mega_sql_settings"
 
 if __name__ == "__main__":
+    import os
     import sys
     import argparse
     from scai_utils import info_log, check_file
@@ -36,10 +32,31 @@ if __name__ == "__main__":
     #=== Establish SQL server connection ===#
     import MySQLdb
 
-    check_file(PASSWD_FN)
-    pwf = open(PASSWD_FN, "rt")
+    sqlSettingsFN = os.path.join(os.getenv("HOME"), SQL_SETTINGS_FN)
+    check_file(sqlSettingsFN)
+    sf = open(sqlSettingsFN, "rt")
+    settings = sf.read().replace("\r", "\n").split("\n")
+    sf.close()
+
+    SQL_SERVER = settings[0]
+    DATABASE_NAME = settings[1]
+    SQL_USER = settings[2]
+    pw = settings[3]
+
+    if args.bVerbose:
+        info_log("SQL settings:")
+        info_log("\tSQL_SERVER = %s" % SQL_SERVER)
+        info_log("\tDATABASE_NAME = %s" % DATABASE_NAME)
+        info_log("\tSQL_USER = %s" % SQL_USER)
+
+
+    """
+    passwdFN = os.path.join(os.getenv("HOME"), PASSWD_FN)
+    check_file(passwdFN)
+    pwf = open(passwdFN, "rt")
     pw = pwf.read()
     pwf.close()
+    """
 
     db = MySQLdb.connect(host=SQL_SERVER, db=DATABASE_NAME,
                          user=SQL_USER, passwd=pw)
