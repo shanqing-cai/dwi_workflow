@@ -18,6 +18,7 @@ from dwi_analysis_settings import DWI_ANALYSIS_DIR, \
 
 from scan_for_dwi import extract_dwi_from_dicom
 
+"""
 ALL_STEPS = ["convert", "dtiprep", "postqc", \
              "tracula_prep", "tracula_bedp", \
              "fix_coreg", \
@@ -25,8 +26,78 @@ ALL_STEPS = ["convert", "dtiprep", "postqc", \
              "roi_tensor", \
              "parcellate", "inspect_parc", \
              "probtrackx", "cort_conn_mat"]
+"""
+
+STEP_TARGETS = {"convert": [], 
+                "dtiprep": [], 
+                "postqc":  [], 
+                "tracula_prep": [], 
+                "fix_coreg": ["dmri/xfms/diff2anatorig.bbr.dat", 
+                              "dmri/xfms/diff2anatorig.bbr.mat"], 
+                "tracula_bedp": [], 
+                "parcellate": ["annot/{parc}.{depth}.diff.nii.gz"], 
+                "probtrackx": ["tracks/{parc}/{roi}_gm/fdt_paths.nii.gz"], 
+                "roi_tensor": [], 
+                "cort_conn_mat": ["conn/{parc}_gm_{hemi}.mat", 
+                                  "conn/{parc}_gm_{hemi}.speech.mat"]}
+
+VIEWING_STEPS = ["inspect_tensor", "inspect_coreg", "inspect_parc", "status"]
+
+ALL_STEPS = STEP_TARGETS.keys()
+ALL_STEPS += VIEWING_STEPS
 
 HEMIS = ["lh", "rh"]
+
+def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
+    nSpc1 = 20
+
+    status = {}
+
+    print("")
+    steps = stepTargets.keys()
+    for (i0, step) in enumerate(steps):
+        statStr = "DONE"
+
+        for (i1, t_fn) in enumerate(stepTargets[step]):
+            t_fns = []
+            if step == "parcellate":
+                for parc in parcs["name"]:
+                    for depth in wmDepths:
+                        t_fns.append(t_fn.replace("{parc}", parc).replace("{depth}", "%dmm" % depth))
+
+            elif step == "probtrackx":
+                for (j0, parc) in enumerate(parcs["name"]):
+                    roiList = __import__(parcs["list_py"][j0]).aROIs
+                    for roi in roiList:
+                        for hemi in HEMIS:
+                            t_roi = "%s_%s" % (hemi, roi[0])
+                            
+                            t_fns.append(t_fn.replace("{parc}", parc).replace("{roi}", t_roi))
+            elif step == "cort_conn_mat":
+                for (j0, parc) in enumerate(parcs["name"]):
+                    for hemi in HEMIS:
+                        t_fns.append(t_fn.replace("{parc}", parc).replace("{hemi}", hemi))
+                
+            else:
+                t_fns.append(t_fn)
+                    
+            for (i2, fn) in enumerate(t_fns):
+                if fn.startswith("/"): # Absolute path
+                    ffn = fn
+                else: # Relative path
+                    ffn = os.path.join(sDir, fn)
+                    
+                if not os.path.isfile(ffn):
+                    statStr = "Not done\n\t(1st missing: %s)" % ffn
+                    break
+
+        spcStr = " " * (nSpc1 - len(step))
+        print("%s%s%s" % (step, spcStr, statStr))
+
+        status[step] = statStr == "DONE"
+
+    return status
+        
 
 if __name__ == "__main__":
     stepsHelp = ""
@@ -145,6 +216,7 @@ if __name__ == "__main__":
     brainAnatOrigFN = os.path.join(dmriDir, "brain_anat_orig.nii.gz")
 
     tensorDir = os.path.join(sDir, "tensor")
+    tensMeasMatFN = os.path.join(tensorDir, "tensor_measures.mat")
 
     xfmsDir = os.path.join(dmriDir, "xfms")
     diff2anatorig_mat = os.path.join(xfmsDir, "diff2anatorig.bbr.mat")
@@ -157,6 +229,7 @@ if __name__ == "__main__":
     tracksDir = os.path.join(sDir, "tracks")
 
     connDir = os.path.join(sDir, "conn")
+
 
     #== Determine the FreeSurfer subject ID ==#
     assert(len(projInfo["subjIDs"][pidx]) == len(projInfo["fsSubjIDs"][pidx]))
@@ -224,10 +297,37 @@ if __name__ == "__main__":
     fsSubjectsDir = os.getenv("SUBJECTS_DIR")
     check_dir(fsSubjectsDir, logFN=logFileName)
 
-    if fsSubjectsDir != FS_SUBJECTS_DIR:
+    if (fsSubjectsDir != FS_SUBJECTS_DIR) and t_step != "status":
         error_log("Your environmental SUBJECTS_DIR (%s) does not match the variable FS_SUBJECTS_DIR (%s) in dwi_analysis_settings.py" % (fsSubjectsDir, FS_SUBJECTS_DIR),
                   logFN=logFileName)
 
+    #=== Load parcellation information ===#
+    from dwi_analysis_settings \
+        import SURF_CLASSIFIERS, PARC_FS_VER
+
+    #=== Load white-matter depth settings ===#
+    from dwi_analysis_settings import WM_DEPTHS
+
+    #=== Prepare data for status checking ===#
+    STEP_TARGETS["convert"].append(outputNrrd)
+
+    STEP_TARGETS["dtiprep"].append(qcedNrrd)
+    STEP_TARGETS["dtiprep"].append(qcXML)
+    STEP_TARGETS["dtiprep"].append(qcReport)
+
+    STEP_TARGETS["postqc"].append(qcedNGZ)
+    STEP_TARGETS["postqc"].append(qcedBVals)
+    STEP_TARGETS["postqc"].append(qcedBVecs)
+
+    STEP_TARGETS["tracula_prep"].append(faFN)
+    STEP_TARGETS["tracula_prep"].append(v1FN)
+    STEP_TARGETS["tracula_prep"].append(lowbBrainFN)
+
+    from tracula_utils import expectFiles as bedpExpectFiles
+    for efn in bedpExpectFiles:
+        STEP_TARGETS["tracula_bedp"].append(os.path.join("dmri.bedpostX", efn))
+
+    STEP_TARGETS["roi_tensor"].append(tensMeasMatFN)
 
     #==== Main branches ====#
     for (i0, t_step) in enumerate(steps):
@@ -550,9 +650,6 @@ if __name__ == "__main__":
                 error_log("parcellation name (--parc) must be supplied for step %s" % t_step,
                           logFN=logFileName)
 
-            from dwi_analysis_settings \
-                import SURF_CLASSIFIERS, PARC_FS_VER
-
             #== Check FreeSurfer version ==#
             from freesurfer_utils import check_fs_ver
             check_fs_ver(PARC_FS_VER, mode="eq")
@@ -592,7 +689,6 @@ if __name__ == "__main__":
                 check_file(annotFNs[hemi], logFN=logFileName)
 
             #== Step 2: mri_aparc2aseg ==#
-            from dwi_analysis_settings import WM_DEPTHS
             wmDepths = WM_DEPTHS
 
             check_bin_path("mri_aparc2aseg", logFN=logFileName)
@@ -724,7 +820,6 @@ if __name__ == "__main__":
             roiList = roiList.aROIs
 
             check_dir(tensorDir, bCreate=True, logFN=logFileName)
-            tensMeasMatFN = os.path.join(tensorDir, "tensor_measures.mat")
 
             wmDepths = [-1] + WM_DEPTHS
 
@@ -931,6 +1026,10 @@ if __name__ == "__main__":
                                            t_maskType, connFN, 
                                            logFN=logFileName)
 
+        elif t_step == "status":
+            check_status(sDir, STEP_TARGETS, \
+                         SURF_CLASSIFIERS, WM_DEPTHS)
+            
         else:
             error_log("Unrecognized step: %s" % t_step, logFN=logFileName)
 
