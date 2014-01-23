@@ -11,8 +11,31 @@ MASTER_CODE_FIELD_NAME = "Lab Code"
 # First column is the field name in the SQL database
 # The first column contains all valid field names
 measNames = [["age"], 
-             ["Sex", "gender"]]
+             ["Sex", "gender"], 
+             ["B-Day", "DOB", "DoB"], 
+             ["Race"],
+             ["Control or Patient ID", "ctrlPtID", "grpID"], 
+             ["Site"], 
+             ["Date Enrolled", "dateEnrolled"], 
+             ["Dates Scanned", "dateScanned"]]
 
+def print_help():
+    print("Usage")
+    print(__file__ + " dataFld --id projID1,projID2,... subjID1,subjID2,...")
+    print("\nList of valid values for dataFld")
+    
+    for (i0, t_row) in enumerate(measNames):
+        t_str = "\t"
+        for (i1, t_item) in enumerate(t_row):
+            if t_item.count(" ") > 0:
+                t_str += "`%s`" % t_item
+            else:
+                t_str += t_item 
+
+            if i1 < len(t_row) - 1:
+                t_str += " | "
+
+        print(t_str)
 
 if __name__ == "__main__":
     import os
@@ -20,6 +43,12 @@ if __name__ == "__main__":
     from scai_utils import *
 
     bVerbose = (sys.argv.count("-v") > 0)
+
+    #=== Print help message ===#
+    if len(sys.argv) == 1 or \
+       sys.argv.count("-h") > 0 or sys.argv.count("--help") > 0:
+        print_help()
+        sys.exit(0)
 
     #=== Determine field name ===#
     ifld = sys.argv[1]
