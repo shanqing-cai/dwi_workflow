@@ -18,16 +18,6 @@ from dwi_analysis_settings import DWI_ANALYSIS_DIR, \
 
 from scan_for_dwi import extract_dwi_from_dicom
 
-"""
-ALL_STEPS = ["convert", "dtiprep", "postqc", \
-             "tracula_prep", "tracula_bedp", \
-             "fix_coreg", \
-             "inspect_tensor", "inspect_coreg", \
-             "roi_tensor", \
-             "parcellate", "inspect_parc", \
-             "probtrackx", "cort_conn_mat"]
-"""
-
 STEP_TARGETS = {"convert": [], 
                 "dtiprep": [], 
                 "postqc":  [], 
@@ -49,6 +39,7 @@ ALL_STEPS += VIEWING_STEPS
 HEMIS = ["lh", "rh"]
 
 def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
+    OPTIONAL_STEPS = ["fix_coreg"]
     nSpc1 = 20
 
     status = {}
@@ -88,7 +79,11 @@ def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
                     ffn = os.path.join(sDir, fn)
                     
                 if not os.path.isfile(ffn):
-                    statStr = "Not done\n\t(1st missing: %s)" % ffn
+                    statStr = "Not done" 
+                    if OPTIONAL_STEPS.count(step) > 0:
+                        statStr += " (Optional - probably OK)"
+
+                    statStr += "\n\t(1st missing: %s)" % ffn
                     break
 
         spcStr = " " * (nSpc1 - len(step))
