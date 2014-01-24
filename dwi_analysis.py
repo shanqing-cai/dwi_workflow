@@ -25,6 +25,7 @@ STEP_TARGETS = {"convert": [],
                 "fix_coreg": ["dmri/xfms/diff2anatorig.bbr.dat", 
                               "dmri/xfms/diff2anatorig.bbr.mat"], 
                 "tracula_bedp": [], 
+                "tracula_path": [], 
                 "parcellate": ["annot/{parc}.{depth}.diff.nii.gz"], 
                 "probtrackx": ["tracks/{parc}/{roi}_gm/fdt_paths.nii.gz"], 
                 "roi_tensor": [], 
@@ -474,7 +475,6 @@ if __name__ == "__main__":
                 saydo("mv %s %s/" % (tracula_scriptsDir, sDir), logFN=logFileName)
                 saydo("rmdir %s" % traculaDir, logFN=logFileName)
 
-
         elif t_step == "tracula_bedp":
             from freesurfer_utils import check_fs_ver
             check_fs_ver(5.1, mode="eqgt")
@@ -516,7 +516,8 @@ if __name__ == "__main__":
 
             from tracula_utils import check_bedp_complete
             if not check_bedp_complete(tracula_bedpDir):
-                error_log("It appears that bedpostx failed.", logFN=logFileName)
+                error_log("It appears that bedpostx failed.", 
+                          logFN=logFileName)
 
             if sID != fsSubjID:
                 saydo("cp -r %s %s/" % (tracula_dlabelDir, sDir), logFN=logFileName)
@@ -532,6 +533,20 @@ if __name__ == "__main__":
                 info_log("bedpostx completed successfully", logFN=logFileName)
             else:
                 error_log("It appears that bedpostx failed.", logFN=logFileName)
+
+        elif t_step == "tracula_path":
+            from freesurfer_utils import check_fs_ver
+            check_fs_ver(5.1, mode="eqgt")
+
+            check_bin_path("trac-all", logFN=logFileName)
+
+            from tracula_utils import check_bedp_complete
+            if not check_bedp_complete(tracula_bedpDir):
+                error_log("It appears that bedpostx failed or has not been completed yet.", 
+                          logFN=logFileName)
+
+            tracall_cmd = "trac-all -c %s -path" % traculaCfgFN
+            saydo(tracall_cmd, logFN=logFileName)
 
         elif t_step == "inspect_tensor":
             check_dir(dmriDir, logFN=logFileName)

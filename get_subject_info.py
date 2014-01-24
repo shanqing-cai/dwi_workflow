@@ -94,6 +94,11 @@ if __name__ == "__main__":
     SQL_USER = settings[2]
     pw = settings[3]
 
+    sqlSettings = {"SQL_SERVER": settings[0],
+                   "DATABASE_NAME": settings[1], 
+                   "SQL_USER": settings[2], 
+                   "pw": settings[3]}
+
     if bVerbose:
         info_log("SQL settings:")
         info_log("\tSQL_SERVER = %s" % SQL_SERVER)
@@ -109,8 +114,9 @@ if __name__ == "__main__":
     cursor = db.cursor()
 
     if sMode == "id":
-        sqlCmd = """SELECT `%s`, `%s` FROM `%s`""" % \
+        sqlCmd = """SELECT `%s`, `%s`, `%s` FROM `%s`""" % \
                  (STUDY_CODE_FIELD_NAME, fld, \
+                  MASTER_CODE_FIELD_NAME, \
                   TOTAL_SCANS_TABLE_NAME)
         #print(sqlCmd)
         cursor.execute(sqlCmd)
@@ -123,6 +129,13 @@ if __name__ == "__main__":
     if bVerbose:
         info_log("Database connect closed.")
 
+    #=== Get the master code of the subjects ===#
+    from get_subject_master_code import get_subject_master_code
+
+    masterCodes = get_subject_master_code(sqlSettings, studyIDs, subjIDs, 
+                                          bVerbose)
+    #print(masterCodes) # DEBUG
+
     #=== Extract data from query result ===#
     from get_alt_ids import get_alt_ids
 
@@ -132,14 +145,18 @@ if __name__ == "__main__":
             t_subjID = subjIDs[i0]
 
             altIDs = get_alt_ids(t_studyID, t_subjID)
+            #print(altIDs) # DEBUG
 
             bFound = False
             for (i1, t_row) in enumerate(qRes):
+                #print(t_row)
                 if t_row[0] == None or t_row[1] == None:
                     continue
 
                 for (i2, t_altID) in enumerate(altIDs):
-                    if t_row[0] == t_altID:
+                    if t_row[0] == t_altID or \
+                       (t_row[2].startswith("SL") and \
+                        int(t_row[2][2:]) == masterCodes[i0]):
                         bFound = True
                         foundRow = t_row
                         break
@@ -154,4 +171,7 @@ if __name__ == "__main__":
             res.append(foundRow[1])
             
     for (i0, t_res) in enumerate(res):
-        print(t_res)
+        if len(t_res.strip()) > 0:
+            print(t_res.strip())
+        else:
+            print(-1)
