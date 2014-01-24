@@ -86,3 +86,45 @@ def check_bedp_complete(bedpDir):
             return r
 
     return r
+
+def get_tracula_settings(cfgFN):
+    tracCfg = {}
+    
+    from scai_utils import check_file, read_text_file
+
+    check_file(cfgFN)
+    txt = read_text_file(cfgFN)
+
+    bFoundPathList = False
+
+    for (i0, t_line) in enumerate(txt):
+        if t_line.strip().startswith("set pathlist ="):
+            bFoundPathList = True
+            break
+
+    paths = []
+    if bFoundPathList:
+        i1 = i0
+        ended = False
+        while not ended:
+            items = txt[i1].split(" ")
+
+            if len(items) == 0:
+                i1 += 1
+                continue
+
+            if items[-1] == "\\":
+                items = items[:-1]
+
+            ended = txt[i1].strip().endswith(")")
+            i1 += 1
+
+            for t_item in items:
+                if t_item.startswith("lh.") or t_item.startswith("rh") and \
+                   len(t_item) > 6:
+                    paths.append(t_item.replace("(", "").replace(")", ""))
+                    
+    tracCfg["paths"] = paths
+    #print(txt)
+    
+    return tracCfg

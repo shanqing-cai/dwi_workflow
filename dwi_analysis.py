@@ -25,7 +25,8 @@ STEP_TARGETS = {"convert": [],
                 "fix_coreg": ["dmri/xfms/diff2anatorig.bbr.dat", 
                               "dmri/xfms/diff2anatorig.bbr.mat"], 
                 "tracula_bedp": [], 
-                "tracula_path": [], 
+                "tracula_path": ["dpath/{path}_avg*_mni_bbr/path.pd.nii.gz",
+                                 "dpath/{path}_avg*_mni_bbr/path.pd.nii.gz"], 
                 "parcellate": ["annot/{parc}.{depth}.diff.nii.gz"], 
                 "probtrackx": ["tracks/{parc}/{roi}_gm/fdt_paths.nii.gz"], 
                 "roi_tensor": [], 
@@ -40,6 +41,8 @@ ALL_STEPS += VIEWING_STEPS
 HEMIS = ["lh", "rh"]
 
 def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
+    import glob
+    
     OPTIONAL_STEPS = ["fix_coreg"]
     nSpc1 = 20
 
@@ -47,6 +50,9 @@ def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
 
     print("")
     steps = stepTargets.keys()
+
+    tracCfg = {}
+    
     for (i0, step) in enumerate(steps):
         statStr = "DONE"
 
@@ -69,6 +75,23 @@ def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
                 for (j0, parc) in enumerate(parcs["name"]):
                     for hemi in HEMIS:
                         t_fns.append(t_fn.replace("{parc}", parc).replace("{hemi}", hemi))
+            elif step == "tracula_path":
+                if len(tracCfg) == 0:
+                    from tracula_utils import get_tracula_settings
+                    tracCfgFN = os.path.join(sDir, "tracula.cfg")
+
+                    if not os.path.isfile(tracCfgFN):
+                        statStr = "Not done"
+                        break
+                    
+                    tracCfg = get_tracula_settings(tracCfgFN)
+
+                    if len(tracCfg) == 0:
+                        info_log("WARNING: Cannot find paths in tracula configuration file %s" % \
+                                 (tracCfgFN), bWarn=True)
+
+                for t_path in tracCfg["paths"]:
+                    t_fns.append(t_fn.replace("{path}", t_path))
                 
             else:
                 t_fns.append(t_fn)
@@ -79,11 +102,16 @@ def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
                 else: # Relative path
                     ffn = os.path.join(sDir, fn)
                     
-                if not os.path.isfile(ffn):
+                if ffn.count("*") == 0 and ffn.count("?") == 0:
+                    isFile = os.path.isfile(ffn) # Not wild card
+                else:
+                    isFile = len(glob.glob(ffn)) > 0 # Wild card
+                    
+                if not isFile:
                     statStr = "Not done" 
                     if OPTIONAL_STEPS.count(step) > 0:
                         statStr += " (Optional - probably OK)"
-
+                            
                     statStr += "\n\t(1st missing: %s)" % ffn
                     break
 
