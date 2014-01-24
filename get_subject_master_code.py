@@ -61,6 +61,12 @@ if __name__ == "__main__":
 
     #print(qRes)
 
+    #=== (Conditional) load the "Total Scans" table for SDAP ===#
+    if studyIDs.count("SDAP") > 0:
+        cursor.execute("""SELECT `Subject Data Directory Name`, `Lab Code` FROM `Total Scans`""")
+        tsRes = cursor.fetchall()
+        #print(tsRes)
+        
     #=== SQL clean up ===#
     db.close()
     if args.bVerbose:
@@ -88,10 +94,26 @@ if __name__ == "__main__":
 
             if bFound:
                 break
+
+        if not bFound: # Try "Total Scans" entries
+            for (i1, t_row) in enumerate(tsRes):
+                if t_row[0] == None or t_row[1] == None:
+                    continue
+                
+                for (i2, t_altID) in enumerate(altIDs):
+                    if t_row[0] == t_altID:
+                        bFound = True
+                        foundRow = t_row
+                        break
+
+                if bFound:
+                    break
         
         if not bFound:
             masterCodes.append(-1)
             continue
+
+        
 
         masterCodes.append(int(foundRow[1].replace("SL", "")))
 
