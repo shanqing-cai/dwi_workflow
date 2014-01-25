@@ -41,8 +41,6 @@ ALL_STEPS += VIEWING_STEPS
 HEMIS = ["lh", "rh"]
 
 def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
-    import glob
-    
     OPTIONAL_STEPS = ["fix_coreg"]
     nSpc1 = 20
 
@@ -563,18 +561,22 @@ if __name__ == "__main__":
                 error_log("It appears that bedpostx failed.", logFN=logFileName)
 
         elif t_step == "tracula_path":
-            from freesurfer_utils import check_fs_ver
-            check_fs_ver(5.1, mode="eqgt")
+            stat = check_status(sDir, STEP_TARGETS, \
+                                SURF_CLASSIFIERS, WM_DEPTHS)
 
-            check_bin_path("trac-all", logFN=logFileName)
+            if not stat["tracula_path"]:
+                from freesurfer_utils import check_fs_ver
+                check_fs_ver(5.1, mode="eqgt")
 
-            from tracula_utils import check_bedp_complete
-            if not check_bedp_complete(tracula_bedpDir):
-                error_log("It appears that bedpostx failed or has not been completed yet.", 
-                          logFN=logFileName)
+                check_bin_path("trac-all", logFN=logFileName)
 
-            tracall_cmd = "trac-all -c %s -path" % traculaCfgFN
-            saydo(tracall_cmd, logFN=logFileName)
+                from tracula_utils import check_bedp_complete
+                if not check_bedp_complete(tracula_bedpDir):
+                    error_log("It appears that bedpostx failed or has not been completed yet.", 
+                              logFN=logFileName)
+
+                tracall_cmd = "trac-all -c %s -path" % traculaCfgFN
+                saydo(tracall_cmd, logFN=logFileName)
 
         elif t_step == "inspect_tensor":
             check_dir(dmriDir, logFN=logFileName)
