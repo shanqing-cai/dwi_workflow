@@ -25,7 +25,7 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
 
     (seed_nVoxels, seed_mm3) = nz_voxels(seedMask)
     seed_nVoxels = float(seed_nVoxels)
-    assert(seed_nVoxels > 0)
+    #assert(seed_nVoxels > 0)
     
     if targMask != None:
         check_file(targMask, logFN=logFN)

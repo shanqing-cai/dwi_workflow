@@ -128,3 +128,114 @@ def get_tracula_settings(cfgFN):
     #print(txt)
     
     return tracCfg
+
+# Subroutine for getting the data from a given track of a given subject
+def get_dpath_track_data(trackDir):
+    # List of data fields to extract
+    dataFlds = ["Count", "Volume", 
+                "Len_Min", "Len_Max", "Len_Avg", "Len_Center", 
+                "AD_Avg", "AD_Avg_Weight", "AD_Avg_Center", 
+                "RD_Avg", "RD_Avg_Weight", "RD_Avg_Center", 
+                "MD_Avg", "MD_Avg_Weight", "MD_Avg_Center", 
+                "FA_Avg", "FA_Avg_Weight", "FA_Avg_Center"]
+
+    dat = {}
+
+    import os
+    from scai_utils import check_dir, check_file, read_text_file, info_log
+
+    check_dir(trackDir)
+    
+    # Read from pathstats.overall.txt
+    pso = os.path.join(trackDir, "pathstats.overall.txt")
+    check_file(pso)
+
+    txt = read_text_file(pso)
+
+    for (i0, t_line) in enumerate(txt):
+        t_line = t_line.strip()
+        
+        if t_line.startswith("#"):
+            continue
+
+        t_items = t_line.split(" ")
+        if len(t_items) == 2:
+            if dataFlds.count(t_items[0]) == 1:
+                dat[t_items[0]] = float(t_items[1])
+                
+    # Check for completeness
+    for (i0, t_fld) in enumerate(dataFlds):
+        if not (t_fld in dat):
+            info_log("WARNING: could not find data field %s in file %s" % \
+                     (t_fld, pso), bWarn=True)
+
+    # Read from pathstats.byvoxel.txt
+    vso = os.path.join(trackDir, "pathstats.byvoxel.txt")
+    check_file(vso)
+
+    txt = read_text_file(vso)
+
+    import numpy as np
+    bvDat = {}
+    cols = {}
+    
+    # Determine the number of data points
+    npts = 0
+    lidx0 = -1
+    bFoundHeader = False
+    for (i0, t_line) in enumerate(txt):
+        t_line = t_line.strip()
+        if len(t_line) == 0:
+            continue
+        
+        if not (t_line.startswith("#") or t_line.startswith("x")):
+            npts += 1
+            if lidx0 == -1:
+                lidx0 = i0
+            
+        if t_line.startswith("x"):
+            bFoundHeader = True
+            t_items = t_line.split(" ")
+            cols["x"] = t_items.index("x")
+            cols["y"] = t_items.index("y")
+            cols["z"] = t_items.index("z")
+            cols["AD"] = t_items.index("AD")
+            cols["RD"] = t_items.index("RD")
+            cols["MD"] = t_items.index("MD")
+            cols["FA"] = t_items.index("FA")
+            cols["AD_Avg"] = t_items.index("AD_Avg")
+            cols["RD_Avg"] = t_items.index("RD_Avg")
+            cols["MD_Avg"] = t_items.index("MD_Avg")
+            cols["FA_Avg"] = t_items.index("FA_Avg")
+            
+    if not bFoundHeader:
+        raise Exception, "Cannot find header column in file %s" % vso
+
+
+    txt = txt[lidx0 : lidx0 + npts]
+    #print(txt)
+
+    # Allocate space
+    bvDat["x"] = np.zeros(npts)
+    bvDat["y"] = np.zeros(npts)
+    bvDat["z"] = np.zeros(npts)
+    bvDat["AD"] = np.zeros(npts)
+    bvDat["RD"] = np.zeros(npts)
+    bvDat["MD"] = np.zeros(npts)
+    bvDat["FA"] = np.zeros(npts)
+    bvDat["AD_Avg"] = np.zeros(npts)
+    bvDat["RD_Avg"] = np.zeros(npts)
+    bvDat["MD_Avg"] = np.zeros(npts)
+    bvDat["FA_Avg"] = np.zeros(npts)
+
+    keys = bvDat.keys()
+
+    for (i0, t_line) in enumerate(txt):
+        t_items = t_line.split(" ")
+        
+        for t_fld in keys:
+            bvDat[t_fld][i0] = float(t_items[cols[t_fld]])
+
+    dat["byVoxel"] = bvDat
+
+    return dat
