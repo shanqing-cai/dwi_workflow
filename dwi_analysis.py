@@ -264,6 +264,7 @@ if __name__ == "__main__":
     tracula_scriptsDir = os.path.join(traculaDir, "scripts")
 
     tracula_bedpDir = os.path.join(traculaDir, "dmri.bedpostX")
+    dlabelDir = os.path.join(sDir, "dlabel")
     bedpDir = os.path.join(sDir, "dmri.bedpostX")
 
     #== Locate the bvals and bvecs files ==#
@@ -572,13 +573,40 @@ if __name__ == "__main__":
                 check_bin_path("trac-all", logFN=logFileName)
 
                 from tracula_utils import check_bedp_complete
-                if not check_bedp_complete(tracula_bedpDir):
+                if not check_bedp_complete(bedpDir):
                     error_log("It appears that bedpostx failed or has not been completed yet.", 
                               logFN=logFileName)
+
+                bReproduce = False
+                if not os.path.isdir(tracula_bedpDir):
+                    bReproduce = True
+                    if not os.path.isdir(traculaDir):
+                        saydo("mkdir -p %s" % traculaDir)
+                        check_dir(traculaDir)
+
+                    saydo("cp -r %s %s" % (bedpDir, tracula_bedpDir))
+                    check_dir(tracula_bedpDir)
+
+                    check_dir(dmriDir)
+                    saydo("cp -r %s %s" % (dmriDir, tracula_dmriDir))
+                    check_dir(tracula_dmriDir)
+
+                    check_dir(dlabelDir)
+                    saydo("cp -r %s %s" % (dlabelDir, tracula_dlabelDir))
+                    check_dir(tracula_dlabelDir)
 
                 tracall_cmd = "trac-all -c %s -path" % traculaCfgFN
                 saydo(tracall_cmd, logFN=logFileName)
 
+                if bReproduce:
+                    dpathDir = os.path.join(sDir, "dpath")
+                    tracula_dpathDir = os.path.join(traculaDir, "dpath")
+                    check_dir(tracula_dpathDir)
+
+                    saydo("cp -r %s %s" % (tracula_dpathDir, dpathDir))
+                    check_dir(dpathDir)
+
+                    saydo("rm -rf %s" % traculaDir)
 
         elif t_step == "tracula_path_post":
             stat = check_status(sDir, STEP_TARGETS, \

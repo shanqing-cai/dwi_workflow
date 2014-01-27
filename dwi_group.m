@@ -12,6 +12,10 @@ function dwi_group(anaType, grpScheme, varargin)
 %                       (e.g., for FA: lh_vPMC; 
 %                              for tns: lh_vMC-lh_vSC)
 %       --wm-depth d:   white-matter depth {-1 for gm, 1, 2, 3}
+%       --path-name pathName: path name to be analyzed under the "path" 
+%                             analysis mode, e.g., lh_SLFT
+%       --path-meas pathMeasure: measure of path to be analyzed under the
+%                                "path" mode, e.g., FA_Avg_Weight
 %       --groups grps: groups to analyze
 %                      This is compulsory for grpScheme==byGroup
 %       --exclude-subjects: exclude specified subjects, seperated by comma
@@ -25,7 +29,7 @@ function dwi_group(anaType, grpScheme, varargin)
 %       -v | --verbose: verbose mode
 %
 %%
-ANALYSIS_TYPES = {'FA', 'MD', 'TNS'};
+ANALYSIS_TYPES = {'FA', 'MD', 'TNS', 'path'};
 GROUPING_SCHEMES = {'byStudy', 'byGroup', 'rep', 'byAge'};
 
 analysisSettingsMat = 'dwi_analysis_settings.mat';
@@ -37,7 +41,7 @@ DEFAULT_PARC = 'aparc12';
 MIN_TNS = 1e-6;
 
 %--- Visualization settings ---%
-fontSize = 15;
+fontSize = 12;
 
 FA_LIMS = [0.1, 0.6];
 
@@ -46,7 +50,7 @@ COLORS = {[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0.5, 1], ...
           [0.5, 0.25, 0], [0.5, 0, 1], [0.5, 0.5, 0], [0, 1, 1], ...
           [1, 0.25, 0.75], [0.25, 1, 0.75], [0.75, 0.25, 1], [1, 0.75, 0.25], ...
           [0.5, 0.5, 0.25], [0.5, 0.25, 0.75], [0.75, 0.25, 0.5], [0.75, 0.5, 0.5]};
-fontSize = 12;
+
 
 %% Process optional input arguments
 args = struct;
@@ -59,6 +63,14 @@ end
 
 if ~isempty(fsic(varargin, '--wm-depth'))
     args.wmDepth = varargin{fsic(varargin, '--wm-depth') + 1};
+end
+
+if ~isempty(fsic(varargin, '--path-name'))
+    args.pathName = varargin{fsic(varargin, '--path-name') + 1};
+end
+
+if ~isempty(fsic(varargin, '--path-meas'))
+    args.pathMeas = varargin{fsic(varargin, '--path-meas') + 1};
 end
 
 % anaGroups = {};
@@ -109,7 +121,9 @@ if isequal(args.anaType, 'TNS')
 
         assert(isequal(seedHemi, targHemi)); % May be relaxed in the future for commissural connections
     end
+
 end
+
 
 %% Check conditionally required input arguments
 if isequal(args.anaType, 'FA') || isequal(args.anaType, 'MD')
@@ -120,7 +134,13 @@ if isequal(args.anaType, 'FA') || isequal(args.anaType, 'MD')
     if ~isfield(args, 'wmDepth')
         error_log(sprintf('The option --wm-depth for analysis type %s is not supplied', args.anaType));
     end
-    
+elseif isequal(args.anaType, 'path')
+    if ~isfield(args, 'pathName')
+        error_log('Under analysis type "path", the compulsory input argument --path-name is missing');
+    end
+    if ~isfield(args, 'pathMeas')
+        error_log('Under analysis type "path", the compulsory input argument --path-meas is missing');
+    end
 end
 
 if isequal(args.grpScheme, 'byGroup') && (~isfield(args, 'group') || length(args.group) == 0)
@@ -241,12 +261,35 @@ for i1 = 1 : size(projInfo.name, 1)
                     assert(isequal(t_roiNames, prev_roiNames));
                 end
             end
+        elseif isequal(args.anaType, 'path')
+            dpathDataMat = fullfile(sDir, 'dpath', 'dpath_data.mat');
+            if ~isfile(dpathDataMat)
+                if args.bv
+                    info_log(sprintf('Skipping subject %s, due to missing dpath data mat file: %s', ...
+                                     t_psid, dpathDataMat), '--warn');
+                end
+                continue;
+            end
+            
+            pathData = load(dpathDataMat);
+            
+            %-- Locate the path --%
+            allPaths = fields(pathData);
+            idxMatch = strmatch(lower(args.pathName), allPaths);
+            if length(idxMatch) ~= 1
+                error_log(sprintf('Cannot find exactly one entry in path data matching the path name: %s', args.pathName));
+            end
+            fld = allPaths{idxMatch};
+            
+            t_dat = pathData.(fld).(args.pathMeas);
+            
         else
             error_log(sprintf('Analaysis type %s has not been implemented yet', ...
                               args.anaType));
         end
         
-        if isequal(args.roi, 'all') || isequal(args.roi, 'lh_all') || isequal(args.roi, 'rh_all')
+        if isfield(args, 'roi') && ...
+           (isequal(args.roi, 'all') || isequal(args.roi, 'lh_all') || isequal(args.roi, 'rh_all'))
             if isvector(t_dat)
                 dat = [dat, t_dat];
             else
@@ -322,7 +365,12 @@ end
 %% Some data formatting
 
 %% Statistical analysis and visualization
-measName = strrep(sprintf('%s: %s', args.anaType, args.roi), '_', '\_');
+if isfield(args, 'roi')
+    measName = strrep(sprintf('%s: %s', args.anaType, args.roi), '_', '\_');
+elseif isfield(args, 'pathName')
+    measName = strrep(sprintf('%s: %s - %s', args.anaType, args.pathName, args.pathMeas), '_', '\_');
+end
+    
 if args.bNormByAll
     measName = [measName, ' (norm. by allAvg)'];
 end

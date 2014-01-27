@@ -72,7 +72,10 @@ expectFiles = ["dyads1_dispersion.nii.gz", "dyads1.nii.gz",
 
 def check_bedp_complete(bedpDir):
     import os
+    from scai_utils import info_log
     
+    #print("Checking bedp completion in directory: %s" % bedpDir)
+
     # Removed: mean_f1samples, mean_S0samples
     
     r = True
@@ -82,7 +85,7 @@ def check_bedp_complete(bedpDir):
         r = r and os.path.isfile(os.path.join(bedpDir, efn))
 
         if not r:
-            info_log("INFO: Cannot find expected file: %s" % efn, logFN=logFN)
+            info_log("INFO: Cannot find expected file: %s" % efn)
             return r
 
     return r
@@ -120,9 +123,12 @@ def get_tracula_settings(cfgFN):
             i1 += 1
 
             for t_item in items:
-                if t_item.startswith("lh.") or t_item.startswith("rh") and \
-                   len(t_item) > 6:
-                    paths.append(t_item.replace("(", "").replace(")", ""))
+                t_item = t_item.replace("(", "").replace(")", "")
+
+                if t_item.startswith("lh.") or t_item.startswith("rh") or \
+                   t_item.startswith("fmajor") or t_item.startswith("fminor") \
+                   and len(t_item) > 6:
+                    paths.append(t_item)
                     
     tracCfg["paths"] = paths
     #print(txt)
