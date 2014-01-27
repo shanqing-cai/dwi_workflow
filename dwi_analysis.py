@@ -601,7 +601,7 @@ if __name__ == "__main__":
                 dt = dt[0]
                 check_dir(dt)
                 
-                pathData[t_track] = get_dpath_track_data(dt)
+                pathData[t_track.replace(".", "_")] = get_dpath_track_data(dt)
 
             #print(pathData)
             from scipy.io import savemat
