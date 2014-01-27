@@ -27,6 +27,7 @@ STEP_TARGETS = {"convert": [],
                 "tracula_bedp": [], 
                 "tracula_path": ["dpath/{path}_avg*_mni_bbr/path.pd.nii.gz",
                                  "dpath/{path}_avg*_mni_bbr/path.pd.nii.gz"], 
+                "tracula_path_post": ["dpath/dpath_data.mat"], 
                 "parcellate": ["annot/{parc}.{depth}.diff.nii.gz"], 
                 "probtrackx": ["tracks/{parc}/{roi}_gm/fdt_paths.nii.gz"], 
                 "roi_tensor": [], 
@@ -578,6 +579,38 @@ if __name__ == "__main__":
                 tracall_cmd = "trac-all -c %s -path" % traculaCfgFN
                 saydo(tracall_cmd, logFN=logFileName)
 
+
+        elif t_step == "tracula_path_post":
+            stat = check_status(sDir, STEP_TARGETS, \
+                                SURF_CLASSIFIERS, WM_DEPTHS)
+
+            if not stat["tracula_path"]:
+                error_log("Step tracula_path has not been completed yet.")
+
+            from tracula_utils import get_tracula_settings, get_dpath_track_data
+
+            tracCfg = get_tracula_settings(traculaCfgFN)
+
+            dpathDir = os.path.join(sDir, "dpath")
+            check_dir(dpathDir)
+            pathData = {}
+            for (i0, t_track) in enumerate(tracCfg["paths"]):
+                dt = glob.glob(os.path.join(dpathDir, t_track + "*"))
+                if len(dt) != 1:
+                    error_log("Cannot find exactly one directory corresponding to track %s" % t_track)
+                dt = dt[0]
+                check_dir(dt)
+                
+                pathData[t_track] = get_dpath_track_data(dt)
+
+            #print(pathData)
+            from scipy.io import savemat
+            matFN = os.path.join(dpathDir, "dpath_data.mat")
+            savemat(matFN, pathData)
+
+            check_file(matFN)
+            info_log("Tracula path results data saved to file: %s" % matFN)
+            
         elif t_step == "inspect_tensor":
             check_dir(dmriDir, logFN=logFileName)
             check_file(faFN, logFN=logFileName)
