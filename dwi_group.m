@@ -8,6 +8,8 @@ function dwi_group(anaType, grpScheme, varargin)
 %                         same subject
 %                   age - Analayze age effects
 %
+%       --projs: limit the analysis to specific projects: string list of
+%                projects, separeted by commas (e.g., 'STUT,RHY')
 %       --roi roiName: region of interest (ROI) name
 %                       (e.g., for FA: lh_vPMC; 
 %                              for tns: lh_vMC-lh_vSC)
@@ -51,11 +53,20 @@ COLORS = {[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0.5, 1], ...
           [1, 0.25, 0.75], [0.25, 1, 0.75], [0.75, 0.25, 1], [1, 0.75, 0.25], ...
           [0.5, 0.5, 0.25], [0.5, 0.25, 0.75], [0.75, 0.25, 0.5], [0.75, 0.5, 0.5]};
 
+%-- Colors for group comparisons --%
+G_COLORS.nrm = [0, 0, 1];
+G_COLORS.pds = [1, 0, 0]; % PDS: persistent developmental stuttering
+G_COLORS.sdp = [1, 0.5, 0]; % SDP: spasmodic dysphonia
 
 %% Process optional input arguments
 args = struct;
 args.anaType = anaType;
 args.grpScheme = grpScheme;
+
+if ~isempty(fsic(varargin, '--proj'))
+    args.projs = varargin{fsic(varargin, '--proj') + 1};
+    args.projs = splitstring(args.projs, ',');
+end
 
 if ~isempty(fsic(varargin, '--roi'))
     args.roi = varargin{fsic(varargin, '--roi') + 1};
@@ -143,7 +154,7 @@ elseif isequal(args.anaType, 'path')
     end
 end
 
-if isequal(args.grpScheme, 'byGroup') && (~isfield(args, 'group') || length(args.group) == 0)
+if isequal(args.grpScheme, 'byGroup') && (~isfield(args, 'groups') || isempty(args.groups))
     error_log(sprintf('--groups not specified under grouping scheme: %s', args.grpScheme));    
 end
 
@@ -355,14 +366,44 @@ if isequal(args.grpScheme, 'rep')
                          size(repTab, 1)));
     end
 end
-    
+
 %% Age statistics
 if isequal(args.grpScheme, 'byAge')
     ages = get_subject_demo_info('age', projs, sids, '--mat');
 end
 
+%% Select projects
+if isfield(args, 'projs') && ~isempty(args.projs)
+    idxPres = [];
     
-%% Some data formatting
+    for i1 = 1 : length(args.projs)
+        idxPres = [idxPres, fsic(projs, args.projs{i1})];
+    end
+    
+    if isempty(idxPres)
+        error_log('There are no subjects from the projects: %s', ...
+                  varargin{fsic(varargin, '--projs') + 1});
+    end
+    
+    projs = projs(idxPres);
+    dat = dat(idxPres);
+    grp = grp(idxPres);
+    sids = sids(idxPres);
+    
+    if exist('masterCodes', 'var')
+        masterCodes = masterCodes(idxPres);
+    end
+    if exist('ages', 'var')
+        ages = ages(idxPres);
+    end
+end
+
+%% Translate projs to projids (numerical)
+uprojs = unique(projs);
+projids = nan(size(projs));
+for i1 = 1 : numel(projs)
+    projids(i1) = fsic(uprojs, projs{i1});
+end
 
 %% Statistical analysis and visualization
 if isfield(args, 'roi')
@@ -723,6 +764,67 @@ elseif isequal(args.grpScheme, 'rep')
         
         end
     end
+    
+elseif isequal(args.grpScheme, 'byGroup') %-- Between group comparisons --%
+    %-- Comparison, project by project --%
+    ng = max(grp);
+    
+    figure('Position', [100, 100, 1200, 600], 'Color', 'w');
+    for i1 = 1 : numel(uprojs)
+        subplot(2, 3, i1);
+        hold on;
+        title(uprojs{i1});
+        
+        t_grp = grp(fsic(projs, uprojs{i1}));        
+        t_dat = dat(fsic(projs, uprojs{i1}));        
+        
+        c_dat = {};
+        for i2 = 1 : ng
+            gdat = t_dat(t_grp == i2);
+            if ~isempty(gdat)
+                c_dat{end + 1} = gdat;
+            end
+            
+            plot(i2, nanmean(gdat), 'o');
+            plot([i2, i2], nanmean(gdat) + [-1, 1] * nanste(gdat), '-');
+            plot(repmat(i2 + 0.2, 1, length(gdat)), gdat, 'o');
+        end
+        
+        set(gca, 'XLim', [0, ng + 1], 'XTick', 1 : ng, 'XTIckLabel', args.groups);
+        
+        xs = get(gca, 'XLim'); ys = get(gca, 'YLim');
+        strN = 'N = (';
+        for i2 = 1 : numel(c_dat)
+            strN = sprintf('%s%d, ', strN, length(c_dat{i2}));            
+        end
+        strN = [strN(1 : end - 2), ')'];
+        text(xs(1) + 0.05 * range(xs), ys(2) - 0.05 * range(ys), strN);
+        
+        if length(c_dat) == 2 && ...
+           length(c_dat{1}) > 2 && length(c_dat{2}) > 2 
+           %-- Perform t-test and ranksum test --%
+            [t_h, t_p, t_ci, t_stats] = ttest2(c_dat{1}, c_dat{2});
+            
+            rs_p = ranksum(c_dat{1}, c_dat{2});
+            
+            text(xs(1) + 0.05 * range(xs), ys(2) - 0.10 * range(ys), ...
+                 sprintf('t-test: t=%f, p=%f', t_stats.tstat, t_p));
+            text(xs(1) + 0.05 * range(xs), ys(2) - 0.15 * range(ys), ...
+                 sprintf('ranksum: p=%f', rs_p))
+        elseif length(c_dat) > 2 % Perform ANOVA
+            
+        end
+    end
+    
+    %-- Perform two-way ANOVA, generally unbalenced --%
+    if length(uprojs) > 1
+        aovTab = anovan(dat, {grp, projs}, 'display', 'off');
+        info_log('');
+        info_log(sprintf('Two-way ANOVA: '))
+        info_log(sprintf('\tGROUP: p = %f', aovTab(1)))
+        info_log(sprintf('\tPROJ: p = %f', aovTab(2)));
+    end
+    
 end
 
 return
