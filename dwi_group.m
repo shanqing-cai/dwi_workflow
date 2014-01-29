@@ -217,7 +217,7 @@ for i1 = 1 : size(projInfo.name, 1)
             tmfile = fullfile(sDir, 'tensor', 'tensor_measures.mat');
             
             if ~isfile(tmfile)
-                if args.bv
+                if args.bv                    
                     info_log(sprintf('Skipping subject %s, due to missing mat file: %s', ...
                                      t_psid, tmfile), '--warn');
                 end
@@ -273,9 +273,14 @@ for i1 = 1 : size(projInfo.name, 1)
                 end
             end
         elseif isequal(args.anaType, 'path')
+            if isequal(t_psid, 'RHY_AWS_M01') % DEBUG
+                pause(0);
+            end
+            
             dpathDataMat = fullfile(sDir, 'dpath', 'dpath_data.mat');
             if ~isfile(dpathDataMat)
                 if args.bv
+                    
                     info_log(sprintf('Skipping subject %s, due to missing dpath data mat file: %s', ...
                                      t_psid, dpathDataMat), '--warn');
                 end

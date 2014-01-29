@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #==========================================================#
 # groupIDs:
 #    Currently, the following groups are valid:
@@ -95,7 +96,8 @@ projInfo = {"name": ["CAT",
                         ["nrm", "pds", "nrm",
                          "nrm", "nrm", "nrm",
                          "pds", "pds", "pds",
-                         "pds", "pds", "pds"],
+                         "pds", "pds", "pds",
+                         "pds"],
                         ["nrm"] * 8,
                         ["nrm"] * 5,
                         ["nrm"] * 11,
