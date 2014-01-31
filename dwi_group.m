@@ -273,10 +273,6 @@ for i1 = 1 : size(projInfo.name, 1)
                 end
             end
         elseif isequal(args.anaType, 'path')
-            if isequal(t_psid, 'RHY_AWS_M01') % DEBUG
-                pause(0);
-            end
-            
             dpathDataMat = fullfile(sDir, 'dpath', 'dpath_data.mat');
             if ~isfile(dpathDataMat)
                 if args.bv

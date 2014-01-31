@@ -179,6 +179,7 @@ if __name__ == "__main__":
 
     #== Locate the input 4d data ==#
     rawFN = rawFN.replace("{subjID}", "%s")
+    # print(rawFN) # DEBUG
 
     nForm = rawFN.count("%s")
     fileNameFormVals = tuple([args.subjID] * nForm)
@@ -186,17 +187,18 @@ if __name__ == "__main__":
     rawFN %= fileNameFormVals
     rawFN = glob.glob(rawFN)
 
-    assert(len(rawFN) == 1)
-    rawFN = rawFN[0]
+    if steps.count("convert") > 0:
+        assert(len(rawFN) == 1)
+        rawFN = rawFN[0]
 
-    if rawFormat == "DICOM":
-        check_dir(rawFN)
-    elif rawFormat == "NRRD":
-        check_file(rawFN)
-    elif rawFormat == "NGZ":
-        check_file(rawFN)
-    else:
-        error_log("Unrecognized raw input format: %s" % rawFormat)
+        if rawFormat == "DICOM":
+            check_dir(rawFN)
+        elif rawFormat == "NRRD":
+            check_file(rawFN)
+        elif rawFormat == "NGZ":
+            check_file(rawFN)
+        else:
+            error_log("Unrecognized raw input format: %s" % rawFormat)
 
     #== Create directory ==#
     check_dir(DWI_ANALYSIS_DIR)
@@ -268,49 +270,50 @@ if __name__ == "__main__":
     bedpDir = os.path.join(sDir, "dmri.bedpostX")
 
     #== Locate the bvals and bvecs files ==#
-    if len(projInfo["bvalsPath"][pidx]) > 0:
-        bvalsFN = \
-            projInfo["bvalsPath"][pidx].replace("{subjID}", "%s") \
-            % fileNameFormVals
-        bvalsFN = glob.glob(bvalsFN)
-        assert(len(bvalsFN) == 1)
-        bvalsFN = bvalsFN[0]
-        check_file(bvalsFN, logFN=logFileName)
+    if steps.count("convert") > 0:
+        if len(projInfo["bvalsPath"][pidx]) > 0:
+            bvalsFN = \
+                projInfo["bvalsPath"][pidx].replace("{subjID}", "%s") \
+                % fileNameFormVals
+            bvalsFN = glob.glob(bvalsFN)
+            assert(len(bvalsFN) == 1)
+            bvalsFN = bvalsFN[0]
+            check_file(bvalsFN, logFN=logFileName)
 
-        bvecsFN = \
-            projInfo["bvecsPath"][pidx].replace("{subjID}", "%s") \
-            % fileNameFormVals
-        bvecsFN = glob.glob(bvecsFN)
-        assert(len(bvecsFN) == 1)
-        bvecsFN = bvecsFN[0]
-        check_file(bvecsFN, logFN=logFileName)
-    else:
-        #== DICOM files without accompanying bvals and bvecs files ==#
-        if steps.count("convert") > 0:
-            out = extract_dwi_from_dicom(rawFN, dicomDir)
-
-            assert(len(out["dwi4d"]) == len(out["bvals"]))
-            assert(len(out["dwi4d"]) == len(out["bvecs"]))
-
-            if len(out["dwi4d"]) == 0:
-                error_log("Cannot find any DWI series in input DICOM directory: %s" % rawFN,
-                          logFN=logFileName)
-            elif len(out["dwi4d"]) > 1:
-                print("WARNING: more than one diffusion series found in DICOM directory: %s. Using the last one.")
-                
-            rawFormat = "NGZ"
-            rawFN = out["dwi4d"][-1]
-            bvalsFN = out["bvals"][-1]
-            bvecsFN = out["bvecs"][-1]
+            bvecsFN = \
+                projInfo["bvecsPath"][pidx].replace("{subjID}", "%s") \
+                % fileNameFormVals
+            bvecsFN = glob.glob(bvecsFN)
+            assert(len(bvecsFN) == 1)
+            bvecsFN = bvecsFN[0]
+            check_file(bvecsFN, logFN=logFileName)
         else:
-            rawFormat = "NGZ"
-            rawFN = glob.glob(os.path.join(dicomDir, "*.nii.gz"))[0]
-            bvalsFN = glob.glob(os.path.join(dicomDir, "*.bval*"))[0]
-            bvecsFN = glob.glob(os.path.join(dicomDir, "*.bvec*"))[0]
+            #== DICOM files without accompanying bvals and bvecs files ==#
+            if steps.count("convert") > 0:
+                out = extract_dwi_from_dicom(rawFN, dicomDir)
 
-        check_file(rawFN, logFN=logFileName)
-        check_file(bvalsFN, logFN=logFileName)
-        check_file(bvecsFN, logFN=logFileName)
+                assert(len(out["dwi4d"]) == len(out["bvals"]))
+                assert(len(out["dwi4d"]) == len(out["bvecs"]))
+
+                if len(out["dwi4d"]) == 0:
+                    error_log("Cannot find any DWI series in input DICOM directory: %s" % rawFN,
+                              logFN=logFileName)
+                elif len(out["dwi4d"]) > 1:
+                    print("WARNING: more than one diffusion series found in DICOM directory: %s. Using the last one.")
+
+                rawFormat = "NGZ"
+                rawFN = out["dwi4d"][-1]
+                bvalsFN = out["bvals"][-1]
+                bvecsFN = out["bvecs"][-1]
+            else:
+                rawFormat = "NGZ"
+                rawFN = glob.glob(os.path.join(dicomDir, "*.nii.gz"))[0]
+                bvalsFN = glob.glob(os.path.join(dicomDir, "*.bval*"))[0]
+                bvecsFN = glob.glob(os.path.join(dicomDir, "*.bvec*"))[0]
+
+            check_file(rawFN, logFN=logFileName)
+            check_file(bvalsFN, logFN=logFileName)
+            check_file(bvecsFN, logFN=logFileName)
 
 
     #=== Determine the rotMat (for postqc) ===#
