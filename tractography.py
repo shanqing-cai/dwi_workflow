@@ -59,8 +59,12 @@ def run_probtrackx(seedMask, targMask, bedpBase, brainMask, outDir,
         cmd += "--stop=%s --waypoints=%s " % (targMask, wpfn)
         
     fdt_paths_fn = os.path.join(outDir, "fdt_paths.nii.gz")
+    
+    #== Get the size of fdt_paths.nii.gz. If the size is zero, start over. ==#
 
-    if not os.path.isfile(fdt_paths_fn) or bRedo:
+    if not os.path.isfile(fdt_paths_fn) \
+            or os.path.getsize(fdt_paths_fn) <= 1 \
+            or bRedo:
         saydo(cmd, logFN=logFN)
 
     #== Check for probtrackx completion ==#
