@@ -74,7 +74,7 @@ projInfo = {"name": ["CAT",
                          "SEQ03015", "SEQ03018"],
                         ["FMRC002_092013", "FMRC003_100413", "FMRP004_101813",
                          "FMRP005_103013", "FMRP006_110113", "FMRC007_111513",
-                         "FMRP008_112913","FMRC009_121313","FMRP010_011714"]], \
+                         "FMRP008_112913","FMRC009_121313","FMRP010_011714","FMRP012_013114"]], \
             "groupIDs": [["nrm"] * 17,
                         ["pds", "nrm", "nrm", "pds", "nrm", 
                          "pds", "pds", "pds", "pds", "pds", 
@@ -103,7 +103,7 @@ projInfo = {"name": ["CAT",
                         ["nrm"] * 11,
                         ["nrm", "nrm", "sdp",
                          "sdp", "sdp", "nrm",
-                         "sdp","nrm","sdp"]], \
+                         "sdp","nrm","sdp","sdp"]], \
             "fsSubjectsDir": ["/speechlab/subjects/pool", 
                               "/speechlab/subjects/pool", 
                               "/speechlab/subjects/pool", 
@@ -147,7 +147,7 @@ projInfo = {"name": ["CAT",
                            "SEQ_FS11", "SEQ_FS12"],
                           ["SDAP.02", "SDAP.03", "SDAP.04",
                            "SDAP.05", "SDAP.06", "SDAP.07",
-                           "SDAP.08","SDAP.09","SDAP.10"]], \
+                           "SDAP.08","SDAP.09","SDAP.10","SDAP.12"]], \
             "rawFormat": ["DICOM",
                           "ngz",
                           "DICOM",
@@ -192,7 +192,7 @@ projInfo = {"name": ["CAT",
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 8,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 5,
                        [np.array([[1,0,0],[0,1,0],[0,0,-1]])] * 11,
-                       [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 9]}
+                       [np.array([[-1,0,0],[0,1,0],[0,0,1]])] * 10]}
 
 if __name__ == "__main__":
     matFN = "dwi_project_info.mat"
