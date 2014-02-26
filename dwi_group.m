@@ -1,4 +1,4 @@
-function dwi_group(anaType, grpScheme, varargin)
+function varargout = dwi_group(anaType, grpScheme, varargin)
 %% dwi_group
 % Input arguments:
 %       anaType: analysis type {FA, MD, TNS}
@@ -568,10 +568,31 @@ if isequal(args.grpScheme, 'byStudy') || isequal(args.grpScheme, 'byAge')
     end
    
 elseif isequal(args.grpScheme, 'rep')
-    if isequal(args.anaType, 'FA') || isequal(args.anaType, 'MD')
-        if isvector(dat) % Single ROI
-            
-        else % A set of ROIs;
+    if (isequal(args.anaType, 'FA') || isequal(args.anaType, 'MD')) && ~isvector(dat)
+%         if isvector(dat) % Single ROI
+%             dat_rx = dat(repTab(:, 1));
+%             dat_ry = dat(repTab(:, 2));
+%             
+%             figure;
+%             hold on;
+%             for i1 = 1 : length(dat_rx) 
+%                 plot(dat_rx(i1), dat_ry(i1), 'o');
+% %                 text(dat_rx(i1), dat_ry(i1), ...
+% %                      sprintf('%s:%s', repProjs{i1, 1}, repProjs{i1, 2}), ...
+% %                      'Color', 'b', 'FontSize', 7);
+%             end
+% 
+%             xs = get(gca, 'XLim');
+%             ys = get(gca, 'YLim');
+%             lims = [min([xs(1), ys(1)]), max([xs(2), ys(2)])];
+%             set(gca, 'XLim', lims, 'YLim', lims);
+%             grid on;
+% 
+%             xlabel(sprintf('%s (Session 1)', measName));
+%             ylabel(sprintf('%s (Session 2)', measName));
+%             axis square;
+%             
+%         else % A set of ROIs;
             figure('Position', [100, 200, 1400, 500], 'Color', 'w');
             spN = 2;
             spM = ceil(size(repTab, 1) / 2);
@@ -620,21 +641,19 @@ elseif isequal(args.grpScheme, 'rep')
                 xlabel(sprintf('measName from Session 1 (%s)', projs{repTab(i1, 1)}));
                 ylabel(sprintf('measName from Session 2 (%s)', projs{repTab(i1, 2)}));
             end
-        end
-        
-        figure('Color', 'w'); 
-        set(gca, 'FontSize', fontSize)
-        hold on;
-        plot(r2s_self, r2s_so, 'ko');
-        lims = [0, 1];
-        set(gca, 'XLim', lims, 'YLim', lims);
-        grid on;
-        plot(lims, lims, '-', 'Color', [0.5, 0.5, 0.5]);
-        xlabel('R^2 of self-self correlation');
-        ylabel('R^2 of self-other correlation');       
-        
-    elseif isequal(args.anaType, 'TNS')
-    
+            
+            figure('Color', 'w'); 
+            set(gca, 'FontSize', fontSize);
+            hold on;
+            plot(r2s_self, r2s_so, 'ko');
+            lims = [0, 1];
+            set(gca, 'XLim', lims, 'YLim', lims);
+            grid on;
+            plot(lims, lims, '-', 'Color', [0.5, 0.5, 0.5]);
+            xlabel('R^2 of self-self correlation');
+            ylabel('R^2 of self-other correlation');  
+%         end        
+    else
         if length(size(dat)) == 2   % Single connection
             dat_rx = dat(repTab(:, 1));
             dat_ry = dat(repTab(:, 2));
@@ -643,9 +662,9 @@ elseif isequal(args.grpScheme, 'rep')
             hold on;
             for i1 = 1 : length(dat_rx) 
                 plot(dat_rx(i1), dat_ry(i1), 'o');
-                text(dat_rx(i1), dat_ry(i1), ...
-                     sprintf('%s:%s', repProjs{i1, 1}, repProjs{i1, 2}), ...
-                     'Color', 'b', 'FontSize', 7);
+%                 text(dat_rx(i1), dat_ry(i1), ...
+%                      sprintf('%s:%s', repProjs{i1, 1}, repProjs{i1, 2}), ...
+%                      'Color', 'b', 'FontSize', 7);
             end
 
             xs = get(gca, 'XLim');
@@ -657,6 +676,25 @@ elseif isequal(args.grpScheme, 'rep')
             xlabel(sprintf('%s (Session 1)', measName));
             ylabel(sprintf('%s (Session 2)', measName));
             axis square;
+            
+            plot(lims, lims, '--', 'Color', [0.5, 0.5, 0.5]);
+                        
+            %-- Perform linear correlation --%
+            xs = get(gca, 'XLim');
+            ys = get(gca, 'YLim');
+            [lc_k, lc_r2, lc_p] = lincorr(dat_rx, dat_ry);
+            text(xs(1) + 0.05 * (xs(2) - xs(1)), ...
+                 ys(2) - 0.06 * (ys(2) - ys(1)), ...
+                 sprintf('lincorr: R^2=%f; p=%f', lc_r2, lc_p));
+            plot(xs, xs * lc_k(2) + lc_k(1), 'b-');
+             
+            %-- Perform Spearman's correlation --%
+            [sp_r, sp_t, sp_p] = spear(dat_rx(:), dat_ry(:));
+            text(xs(1) + 0.05 * (xs(2) - xs(1)), ...
+                 ys(2) - 0.12 * (ys(2) - ys(1)), ...
+                 sprintf('spear: rho=%f; p=%f', sp_r, sp_p));
+            
+            set(gca, 'XLim', xs, 'YLim', ys);
         elseif length(size(dat)) == 3
             for i1 = 1 : size(repTab, 1)
                 figure('Name', sprintf('SubjID: %s / %s', sids{repTab(i1, 1)}, sids{repTab(i1, 2)}), ...
