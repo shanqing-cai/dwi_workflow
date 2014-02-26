@@ -14,7 +14,7 @@ from dwi_project_info import projInfo
 from dwi_analysis_settings import DWI_ANALYSIS_DIR, \
     BASE_TRACULA_CFG, FIX_BVECS_SCRIPT, \
     TRACULA_DOEDDY, TRACULA_DOROTVECS, TRACULA_THR_BET, \
-    INIT_FLIRT_MATS
+    INIT_FLIRT_MATS, FNIRT_TEMPLATE, FNIRT_CNF
 
 from scan_for_dwi import extract_dwi_from_dicom
 
@@ -32,9 +32,12 @@ STEP_TARGETS = {"convert": [],
                 "probtrackx": ["tracks/{parc}/{roi}_gm/fdt_paths.nii.gz"], 
                 "roi_tensor": [], 
                 "cort_conn_mat": ["conn/{parc}_gm_{hemi}.mat", 
-                                  "conn/{parc}_gm_{hemi}.speech.mat"]}
+                                  "conn/{parc}_gm_{hemi}.speech.mat"],
+                "fnirt": []}
 
-VIEWING_STEPS = ["inspect_tensor", "inspect_coreg", "inspect_parc", "status"]
+VIEWING_STEPS = ["inspect_tensor", "inspect_coreg", "inspect_parc",
+                 "inspect_fnirt", 
+                 "status"]
 
 ALL_STEPS = STEP_TARGETS.keys()
 ALL_STEPS += VIEWING_STEPS
@@ -42,7 +45,7 @@ ALL_STEPS += VIEWING_STEPS
 HEMIS = ["lh", "rh"]
 
 def check_status(sDir, stepTargets, parcs=[], wmDepths=[]):
-    OPTIONAL_STEPS = ["fix_coreg"]
+    OPTIONAL_STEPS = ["fix_coreg", "fnirt"]
     nSpc1 = 20
 
     status = {}
@@ -150,6 +153,7 @@ if __name__ == "__main__":
     ap.add_argument("--skip-mris-ca-label", dest="bSkipMRISCALabel",
                     action="store_true",
                     help="Skip the mris_ca_label sub-step in step parcellate")
+    ap.add_argument("--flirt-opts", dest="flirtOpts")
     ap.add_argument("--use-fslview", dest="bUseFslview",
                     action="store_true",
                     help="Use fslview in lieu of tkregister2")
@@ -335,6 +339,14 @@ if __name__ == "__main__":
     #=== Load white-matter depth settings ===#
     from dwi_analysis_settings import WM_DEPTHS
 
+    #=== FNIRT settings ===#
+    fnirtDir = os.path.join(sDir, "fnirt")
+    fnirtBase = os.path.join(fnirtDir, 
+                             "fnirt_to_%s" % os.path.split(FNIRT_TEMPLATE)[-1].replace(".nii.gz", "").replace(".mgz", "").replace(".img", "").replace(".nii", ""))
+    fnirtNGZ = fnirtBase + ".nii.gz"
+    fnirtWarpNGZ = fnirtBase + "_warp.nii.gz"
+    fnirtMat = fnirtBase + ".mat"
+    
     #=== Prepare data for status checking ===#
     STEP_TARGETS["convert"].append(outputNrrd)
 
@@ -349,6 +361,10 @@ if __name__ == "__main__":
     STEP_TARGETS["tracula_prep"].append(faFN)
     STEP_TARGETS["tracula_prep"].append(v1FN)
     STEP_TARGETS["tracula_prep"].append(lowbBrainFN)
+
+    STEP_TARGETS["fnirt"].append(fnirtNGZ)
+    STEP_TARGETS["fnirt"].append(fnirtWarpNGZ)
+    STEP_TARGETS["fnirt"].append(fnirtMat)
 
     from tracula_utils import expectFiles as bedpExpectFiles
     for efn in bedpExpectFiles:
@@ -1129,11 +1145,51 @@ if __name__ == "__main__":
                                            t_hemi, args.bSpeech,
                                            t_maskType, connFN, 
                                            logFN=logFileName)
+        elif t_step == "fnirt":
+            check_file(FNIRT_TEMPLATE, logFN=logFileName)
+            check_file(FNIRT_CNF, logFN=logFileName)
+
+            brainMGZ = os.path.join(FS_SUBJECTS_DIR, fsSubjID, "mri", "brain.mgz")
+            check_file(brainMGZ, logFN=logFileName)
+            brainNGZ = os.path.join(FS_SUBJECTS_DIR, fsSubjID, "mri", "brain.nii.gz")
+            
+            if not os.path.isfile(brainNGZ) or args.bRedo:
+                cvtCmd = "mri_convert %s %s" % (brainMGZ, brainNGZ)
+                saydo(cvtCmd, logFN=logFileName)
+                check_file(brainNGZ, logFN=logFileName)
+                
+            check_dir(fnirtDir, bCreate=True, logFN=logFileName)
+            
+            check_bin_path("fsl_reg", logFN=logFileName)
+            
+            cmd = "fsl_reg %s %s %s " % (brainNGZ, FNIRT_TEMPLATE, fnirtBase) 
+            if args.flirtOpts != None and len(args.flirtOpts) > 0:
+                cmd += "-flirt \"%s\" " % args.flirtOpts 
+            cmd += "-fnirt --config=%s" % FNIRT_CNF
+
+            if not (os.path.isfile(fnirtNGZ) and 
+                    os.path.isfile(fnirtWarpNGZ) and
+                    os.path.isfile(fnirtMat)) or args.bRedo:
+                saydo(cmd, logFN=logFileName)
+
+            check_file(fnirtNGZ, logFN=logFileName)
+            check_file(fnirtWarpNGZ, logFN=logFileName)
+            check_file(fnirtMat, logFN=logFileName)
+
+        elif t_step == "inspect_fnirt":
+            check_bin_path("fslview", logFN=logFileName)
+
+            stat = check_status(sDir, STEP_TARGETS, 
+                                SURF_CLASSIFIERS, WM_DEPTHS)
+
+            if not stat["fnirt"]:
+                error_log("Step \"fnirt\" has not been completed yet", 
+                          logFN=logFileName)
+            cmd = "fslview %s %s" % (fnirtNGZ, FNIRT_TEMPLATE)
 
         elif t_step == "status":
             check_status(sDir, STEP_TARGETS, \
                          SURF_CLASSIFIERS, WM_DEPTHS)
-            
         else:
             error_log("Unrecognized step: %s" % t_step, logFN=logFileName)
 

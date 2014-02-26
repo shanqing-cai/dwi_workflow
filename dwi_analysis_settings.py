@@ -35,6 +35,9 @@ TENSOR_MEASURES = ["FA", "MD"]
 
 SUBJECT_MASTER_CODE_FILE = "/speechlab/2/jtour/SID/Master_Code.xls"
 
+FNIRT_TEMPLATE = "/speechlab/software/fsl64/data/standard/MNI152_T1_1mm_brain.nii.gz"
+FNIRT_CNF = "/speechlab/5/scai/RHY/rhythm-fmri/fmri_code/MNI152_T1_1mm_brain.cnf"
+
 if __name__ == "__main__":
     from scipy.io import savemat
     from scai_utils import check_file, info_log
