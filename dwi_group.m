@@ -650,12 +650,13 @@ elseif isequal(args.grpScheme, 'rep')
             
             %-- Perform linear correlation --%
             [lc_k, lc_r2, lc_p] = lincorr(dat_rx, dat_ry);
+            lc_r = sqrt(lc_r2) * sign(lc_k(2));
             
             %-- Perform Spearman's correlation --%
             [sp_r, sp_t, sp_p] = spear(dat_rx(:), dat_ry(:));
 
             if ~bPlot
-                varargout{1} = [lc_r2, sp_r];
+                varargout{1} = [lc_r, sp_r];
                 return
             else
                 figure;
