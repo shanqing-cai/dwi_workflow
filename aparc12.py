@@ -64,3 +64,17 @@ aROIs = [   ['FP',     'Prefrontal',   'N', []], \
             ['pPHg',    'Parahippocampal',  'N', ["pPH"]], \
             ['aPHg',    'Parahippocampal',  'N', ["aPH"]], \
             ['SCC',    'Parahippocampal',   'N', []]]
+
+if __name__ == "__main__":
+    from scipy.io import savemat
+    from scai_utils import check_file
+
+    dat = {"aROIs": [], "speechROIs": []}
+
+    
+    for (i0, t_line) in enumerate(aROIs):
+        dat["aROIs"].append(t_line[0])
+        if t_line[2] == "S":
+            dat["speechROIs"].append(t_line[0])
+    savemat("aparc12.mat", dat)
+    check_file("aparc12.mat")
