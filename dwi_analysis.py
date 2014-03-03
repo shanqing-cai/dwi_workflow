@@ -1186,6 +1186,7 @@ if __name__ == "__main__":
                 error_log("Step \"fnirt\" has not been completed yet", 
                           logFN=logFileName)
             cmd = "fslview %s %s" % (fnirtNGZ, FNIRT_TEMPLATE)
+            saydo(cmd, logFN=logFileName)
 
         elif t_step == "status":
             check_status(sDir, STEP_TARGETS, \

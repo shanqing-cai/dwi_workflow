@@ -16,6 +16,8 @@ end
 %% TNS reproducibility 
 nROIs = length(rois);
 nTracts = nROIs * (nROIs - 1) / 2;
+
+res = struct;
 res.TNS.lc_r = nan(1, nTracts * 2);
 res.TNS.sp_r = nan(1, nTracts * 2);
 
@@ -36,7 +38,6 @@ for i1 = 1 : length(HEMIS)
 end
 
 %% FA reproducibility
-res = struct;
 res.FA.lc_r = nan(1, length(rois) * 2);
 res.FA.sp_r = nan(1, length(rois) * 2);
 
