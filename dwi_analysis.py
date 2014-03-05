@@ -29,10 +29,12 @@ STEP_TARGETS = {"convert": [],
                                  "dpath/{path}_avg*_mni_bbr/path.pd.nii.gz"], 
                 "tracula_path_post": ["dpath/dpath_data.mat"], 
                 "parcellate": ["annot/{parc}.{depth}.diff.nii.gz"], 
-                "probtrackx": ["tracks/{parc}/{roi}_gm/fdt_paths.nii.gz"], 
+                "probtrackx": ["tracks/{parc}/{roi}_gm/fdt_paths.nii.gz"],
+                "probtrackx_subcort": [], # TODO
                 "roi_tensor": [], 
                 "cort_conn_mat": ["conn/{parc}_gm_{hemi}.mat", 
                                   "conn/{parc}_gm_{hemi}.speech.mat"],
+                "subcort_conn_mat": [],
                 "fnirt": []}
 
 VIEWING_STEPS = ["inspect_tensor", "inspect_coreg", "inspect_parc",
@@ -256,6 +258,7 @@ if __name__ == "__main__":
     annotDir = os.path.join(sDir, "annot")
 
     tracksDir = os.path.join(sDir, "tracks")
+    tracksSCDir = os.path.join(sDir, "tracks_sc")
 
     connDir = os.path.join(sDir, "conn")
 
@@ -1076,6 +1079,99 @@ if __name__ == "__main__":
                                        ccStop=False, 
                                        bRedo=args.bRedo,
                                        logFN=logFileName)
+
+                        
+        elif t_step == "probtrackx_subcort":
+            if len(args.parcName) == 0:
+                error_log("parcellation name (--parc) must be supplied for step %s" % t_step,
+                          logFN=logFileName)
+
+            #== Make sure that the dependent steps are finished ==#
+            stat = check_status(sDir, STEP_TARGETS, \
+                                SURF_CLASSIFIERS, WM_DEPTHS)
+
+            if not stat["parcellate"] or not stat["tracula_bedp"]:
+                error_log("Prerequisite steps are not all finished: "
+                          "parcellate, tracula_bedp", logFN=logFileName)
+
+            check_dir(tracksSCDir, bCreate=True, logFN=logFileName)
+            parcTracksSCDir = os.path.join(tracksSCDir, args.parcName)
+            check_dir(parcTracksSCDir, bCreate=True, logFN=logFileName)
+            
+            from dwi_analysis_settings import SUBCORT_LABEL_LIST, \
+                 SUBCORT_TRACT_SEEDS            
+
+            check_file(SUBCORT_LABEL_LIST)
+            scTab = read_ctab(SUBCORT_LABEL_LIST)
+
+            #=== Directory for storing subcortical binary masks ===#
+            parcMaskDir = os.path.join(annotDir, args.parcName)
+            check_dir(parcMaskDir, logFN=logFileName)
+            parcMaskSCDir = os.path.join(parcMaskDir, "subcort")
+            check_dir(parcMaskSCDir, bCreate=True, logFN=logFileName)
+
+            #=== Generate the subcortical ROI masks ===#
+            sc_rois = [None] * len(SUBCORT_TRACT_SEEDS)
+            sc_nums = [None] * len(SUBCORT_TRACT_SEEDS)
+            
+            for (i0, t_scSeed) in enumerate(SUBCORT_TRACT_SEEDS):
+                if scTab[1].count(t_scSeed) == 0:
+                    error_log("Cannot find subcortical seed named %s in list file %s" % \
+                              (t_scSeed, SUBCORT_LABEL_LIST), logFN=logFileName)
+
+                sc_nums[i0] = scTab[0][scTab[1].index(t_scSeed)]
+                info_log("Recognized subcortical seed: %s - Code %d" % \
+                         (t_scSeed, sc_nums[i0]))
+
+                sc_rois[i0] = t_scSeed
+
+            #== Call gen_parc_masks to generate the masks ==#
+            parcVol = os.path.join(annotDir, args.parcName + ".diff.nii.gz")
+            check_file(parcVol, logFN=logFileName)
+
+            from aparc_utils import gen_parc_masks
+            gen_parc_masks(sc_rois, sc_nums, parcVol, parcMaskSCDir,
+                           logFN=logFileName)
+
+            #== bedp merged files and brain mask ==#
+            check_dir(bedpDir, logFN=logFileName)
+            
+            from tracula_utils import check_bedp_complete
+            check_bedp_complete(bedpDir)
+            
+            bedpBase = os.path.join(bedpDir, "merged")
+            
+            brainMask = os.path.join(bedpDir,
+                                     "nodif_brain_mask.nii.gz")
+            check_file(brainMask, logFN=logFileName)
+
+            #=== Run probtrackx ===#
+            from tractography import run_probtrackx
+
+            for (i0, seedROI) in enumerate(sc_rois):
+                #= Seed files =#
+                seedMask = os.path.join(parcMaskSCDir, 
+                                        "%s.diff.nii.gz" % seedROI)
+                check_file(seedMask, logFN=logFileName)
+
+                if args.targ != None:
+                    #== Prepare output directory ==#
+                    #TODO
+                    pass
+                else:
+                    outDir = os.path.join(parcTracksSCDir, seedROI)
+
+                    check_dir(outDir, bCreate=True, logFN=logFileName)
+
+                    #== Do the work ==#
+                    run_probtrackx(seedMask, None, bedpBase, brainMask,
+                                   outDir, 
+                                   doSeedNorm=True, doSize=True, 
+                                   doTargMaskedFDT=True, 
+                                   ccStop=False, 
+                                   bRedo=args.bRedo,
+                                   logFN=logFileName)
+                        
         elif t_step == "cort_conn_mat":
             #=== Calculate the cortical connectivity matrix ===#
             #===     from the probtrackx results ===#
@@ -1114,6 +1210,8 @@ if __name__ == "__main__":
             #=== Check the existence of all masks (diffusion-space) ===#
             parcDir = os.path.join(annotDir, args.parcName)
 
+
+
             for (k0, t_hemi) in enumerate(hemis):
                 for (k1, t_maskType) in enumerate(maskTypes):
                     info_log("Working on hemisphere %s and mask type %s"
@@ -1140,11 +1238,91 @@ if __name__ == "__main__":
                     connFN += ".mat"
                     connFN = os.path.join(connDir, connFN)
                         
-                    from tractography import generate_cort_conn_mat
-                    generate_cort_conn_mat(roiList, typeDir, parcTracksDir,
-                                           t_hemi, args.bSpeech,
-                                           t_maskType, connFN, 
-                                           logFN=logFileName)
+                    from tractography import generate_conn_mat
+                    generate_conn_mat(roiList, None, typeDir, parcTracksDir,
+                                      t_hemi, args.bSpeech,
+                                      t_maskType, connFN, 
+                                      logFN=logFileName)
+                    
+        elif t_step == "subcort_conn_mat":
+            #=== Calculate the cortical connectivity matrix ===#
+            #===     from the probtrackx results ===#
+            from dwi_analysis_settings import SURF_CLASSIFIERS
+
+            if args.parcName == "" or args.parcName == None:
+                error_log("Compulsory --parc option not supplied for step %s" \
+                          % t_step,
+                          logFN=logFileName)
+
+            if SURF_CLASSIFIERS["name"].count(args.parcName) == 0:
+                error_log("Parcellation '%s' is not found in dwi_analysis_settings.py" % args.parcName,
+                          logFN=logFileName)
+
+            if args.hemi == None or args.hemi == "":
+                error_log("Required option hemi is not supplied during step %s" % t_step,
+                          logFN=logFileName)
+
+            hemis = args.hemi.split(",")
+
+            for (k0, t_hemi) in enumerate(hemis):
+                assert(HEMIS.count(t_hemi) == 1)
+
+            if args.maskType == None or args.maskType == "":
+                error_log("Required option maskType is not supplied during step %s" % t_step,
+                          logFN=logFileName)
+                
+            maskTypes = args.maskType.split(",")
+
+            parcIdx = SURF_CLASSIFIERS["name"].index(args.parcName)
+            list_py = SURF_CLASSIFIERS["list_py"][parcIdx]
+
+            c_roiList = __import__(list_py) 
+            c_roiList = c_roiList.aROIs # Cortical ROI list
+
+            from dwi_analysis_settings import SUBCORT_LABEL_LIST, \
+                                              SUBCORT_TRACT_SEEDS
+
+            check_file(SUBCORT_LABEL_LIST)
+            scTab = read_ctab(SUBCORT_LABEL_LIST)
+            sc_roiList = SUBCORT_TRACT_SEEDS
+
+            #=== Check the existence of all masks (diffusion-space) ===#
+            parcDir = os.path.join(annotDir, args.parcName)
+
+            for (k0, t_hemi) in enumerate(hemis):
+                for (k1, t_maskType) in enumerate(maskTypes):
+                    info_log("Working on hemisphere %s and mask type %s"
+                             % (t_hemi, t_maskType))
+                    
+                    typeDir = os.path.join(parcDir, t_maskType)
+
+                    check_dir(parcDir, logFN=logFileName)
+                    check_dir(typeDir, logFN=logFileName)
+
+                    check_dir(tracksDir, logFN=logFileName)
+
+                    parcTracksDir = os.path.join(tracksDir, args.parcName)
+                    check_dir(parcTracksDir, logFN=logFileName)
+
+                    #=== File name of the output ===#
+                    check_dir(connDir, bCreate=True, logFN=logFileName)
+
+                    connFN = "%s_subcort_%s_%s" \
+                             % (args.parcName, t_maskType, t_hemi)
+                    if args.bSpeech:
+                        connFN += ".speech"
+                        
+                    connFN += ".mat"
+                    connFN = os.path.join(connDir, connFN)
+                        
+                    from tractography import generate_conn_mat
+                    generate_conn_mat(c_roiList, sc_roiList,
+                                      typeDir, parcTracksDir,
+                                      t_hemi, args.bSpeech,
+                                      t_maskType, connFN, 
+                                      logFN=logFileName)
+                    
+                    
         elif t_step == "fnirt":
             check_file(FNIRT_TEMPLATE, logFN=logFileName)
             check_file(FNIRT_CNF, logFN=logFileName)

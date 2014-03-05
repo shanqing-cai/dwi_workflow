@@ -157,14 +157,21 @@ def check_probtrackx_complete(trackResDir, mode, doSeedNorm=True, doSize=True,
             check_file(targ_size_fn, logFN=logFN)
 
     
-
-def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi, 
-                           arg_bSpeech, maskType, connFN, logFN=None):
+# Import arguments: roiList: cortical ROI list
+#                   sc_roiList: subcortical ROI list 
+#                         (Set to None for cortical matrix)
+def generate_conn_mat(roiList, sc_roiList, 
+                      parcTypeDir, parcTracksDir, hemi, 
+                      arg_bSpeech, maskType, connFN, logFN=None):    
     import os
+    import sys
     import numpy as np
     import nibabel as nb
     from scai_utils import check_file, check_dir, info_log, error_log
-    
+
+    bSC = sc_roiList != None # Subcortical mode flag
+
+    # Process cortical ROIs (this is needed for both SC and C matrix types)
     mask_shapes = []
     roiNames = []
     nzIdx = []
@@ -196,22 +203,84 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
         roiNames = roiNames[np.nonzero(bSpeech)[0]]
         nzIdx = nzIdx[np.nonzero(bSpeech)[0]]
 
+    #print(roiNames) # DEBUG
+    #print(bSpeech) # DEBUG
+
+    # Process subcortical ROIs
+    if bSC:
+        parcSCDir = os.path.join(os.path.split(parcTypeDir)[0], "subcort")
+        check_dir(parcSCDir)
+        
+        sc_roiNames = []
+        sc_nzIdx = []
+        for (i0, troi) in enumerate(sc_roiList):
+            if (hemi == "lh" and troi.startswith("Left-")) or \
+               (hemi == "rh" and troi.startswith("Right")):
+                sc_roiNames.append(troi)
+
+                maskFN = os.path.join(parcSCDir, \
+                                      "%s.diff.nii.gz" % (troi))
+                check_file(maskFN, logFN=logFN)
+                
+                t_img = nb.load(maskFN)
+                t_img_dat = t_img.get_data()
+
+                mask_shapes.append(np.shape(t_img_dat))
+
+                t_img_dat = np.ndarray.flatten(t_img_dat)
+
+                sc_nzIdx.append(np.nonzero(t_img_dat)[0])
+                #print(sc_nzIdx[-1]) # DEBUG
+                #print(maskFN) # DEBUG
+
+        sc_roiNames = np.array(sc_roiNames)
+        sc_nzIdx = np.array(sc_nzIdx)
+        
+        #print(sc_roiNames) # DEBUG
+        
 
     nROIs = len(roiNames)
     assert(len(nzIdx) == nROIs)
     if len(np.unique(mask_shapes)) != 1:
-        error_log("Non-unique matrix size among the mask files", logFN=logFN)
+        error_log("Non-unique matrix size among the mask files", logFN=logFN)  
     imgShape = np.unique(mask_shapes)[0]
+
+    if bSC:
+        nROIs_sc = len(sc_roiNames)
 
     #=== Check the completion of seed-only probtrackx ===#
     #===     and calculate the conn matrix ===#
-    connMat = np.zeros([nROIs, nROIs])
+    if not bSC:
+        d1_roiNames = roiNames
+        d2_roiNames = roiNames
+    else:
+        d1_roiNames = sc_roiNames
+        d2_roiNames = np.array(list(sc_roiNames) + list(roiNames))
 
-    for (i0, troi) in enumerate(roiNames):
+    connMat = np.zeros([len(d1_roiNames), len(d2_roiNames)])
+
+    #print(d2_roiNames) # DEBUG
+    #print(len(connMat)) # DEBUG
+    #print(len(connMat[0])) # DEBUG
+
+    #print(parcTracksDir) # DEBUG
+
+    
+    if bSC:
+        tmp_dir = os.path.split(parcTracksDir)[1]
+        parcTracksSCDir = os.path.split(os.path.split(parcTracksDir)[0])[0]
+        parcTracksSCDir = os.path.join(parcTracksSCDir, "tracks_sc", tmp_dir)
+        #print(parcTracksSCDir) # DEBUG
+        check_dir(parcTracksSCDir)
+        
+    for (i0, troi) in enumerate(d1_roiNames):
         seedROI = troi
-        trackResDir = os.path.join(parcTracksDir, 
-                                   "%s_%s_%s" % \
-                                   (hemi, seedROI, maskType))
+        if not bSC:
+            trackResDir = os.path.join(parcTracksDir, 
+                                       "%s_%s_%s" % \
+                                       (hemi, seedROI, maskType))
+        else:
+            trackResDir = os.path.join(parcTracksSCDir, seedROI)
                                    
         check_probtrackx_complete(trackResDir, "seedOnly", 
                                   doSeedNorm=True, doSize=True,
@@ -224,17 +293,31 @@ def generate_cort_conn_mat(roiList, parcTypeDir, parcTracksDir, hemi,
         assert(list(np.shape(t_img_dat)) == list(imgShape))
         t_img_dat = np.ndarray.flatten(t_img_dat)
 
-        for (i1, troi1) in enumerate(roiNames):
-            connMat[i0, i1] = np.mean(t_img_dat[nzIdx[i1]])
-        
-    #=== Make symmetric ===#
-    connMat = 0.5 * (connMat + connMat.T)
+        for (i1, troi1) in enumerate(d2_roiNames):
+            if not bSC:
+                connMat[i0, i1] = np.mean(t_img_dat[nzIdx[i1]])
+            else:
+                if i1 < nROIs_sc:
+                    connMat[i0, i1] = np.mean(t_img_dat[sc_nzIdx[i1]])
+                else:
+                    connMat[i0, i1] = np.mean(t_img_dat[nzIdx[i1 - nROIs_sc]])
 
-    print(connMat) ## DEBUG
+    #=== Make symmetric ===#
+    if not bSC:
+        connMat = 0.5 * (connMat + connMat.T)
+
+    #print(connMat) ## DEBUG
 
     #=== Write result .mat file ===#
     from scipy.io import savemat
-    res = {"roiNames": roiNames, "connMat": connMat}
+    if not bSC:
+        res = {"roiNames": roiNames,
+               "connMat": connMat}
+    else:
+        res = {"d1_roiNames": d1_roiNames,
+               "d2_roiNames": d2_roiNames,
+               "connMat": connMat}
+        
     savemat(connFN, res)
     print("connFN = " + connFN)
     check_file(connFN, logFN=logFN)
